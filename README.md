@@ -27,7 +27,15 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 2. Scroll down to "API token" section
 3. Copy your API token (it will look like: `0123456789abcdef0123456789abcdef01234567`)
 
-### 2. Create a Google Document or a Plain Text File
+### 2. Set Up Google Apps Script
+
+1. Go to [Google Apps Script](https://script.google.com/)
+2. Create a new project
+3. Delete the default `Code.gs` content
+4. Create one file in your project:
+   - `todoist-snapshot.gs` (copy the contents from this repository)
+
+### 3. Create a Google Document or a Plain Text File
 
 You can target either a Google Doc (rich formatting) or a plain text file (simple list). Use one or both.
 
@@ -39,24 +47,19 @@ You can target either a Google Doc (rich formatting) or a plain text file (simpl
 1. In Google Drive, create or upload a `.txt` file (e.g., `todoist-snapshot.txt`)
 2. Right-click the file → Get link → Copy link. Example: `https://drive.google.com/file/d/1AbCdEFghIJklMNopQRstuVWxyz123456/view?usp=sharing`
 
-### 3. Set Up Google Apps Script and Configure Properties
+### 4. Configure Script Properties (paste URLs + token)
 
-1. Go to [Google Apps Script](https://script.google.com/)
-2. Create a new project
-3. Delete the default `Code.gs` content
-4. Create one file in your project:
-   - `todoist-snapshot.gs` (copy the contents from this repository)
+Use the Apps Script UI to set properties. Paste full sharing URLs; the script will extract IDs automatically.
 
-5. Configure Script Properties (paste your URLs now):
-   - Open Project settings (gear icon) → Script properties → Add script property
-   - Add these properties:
-     - `TODOIST_TOKEN`: your Todoist API token
-     - `DOC_ID` (optional): Google Doc sharing URL if you want Doc output
-     - `TEXT_FILE_ID` (optional): Drive file sharing URL (.txt) if you want text output
-     - `TIMEZONE` (optional): e.g., `America/Chicago`
-   - Save the properties
+1. In the Apps Script editor, open Project settings (gear icon) → Script properties → Add script property
+2. Add these properties:
+   - `TODOIST_TOKEN`: your Todoist API token
+   - `DOC_ID` (optional): Google Doc sharing URL if you want Doc output
+   - `TEXT_FILE_ID` (optional): Drive file sharing URL (.txt) if you want text output
+   - `TIMEZONE` (optional): e.g., `America/Chicago`
+3. Save the properties
 
-### 4. Test the Sync
+### 5. Test the Sync
 
 Primary entry point:
 1. Run the `syncTodoist()` function from `todoist-snapshot.gs`
@@ -68,7 +71,7 @@ Primary entry point:
    - `syncTodoistToDoc()`
    - `syncTodoistToTextFile()`
 
-### 5. Set Up Automatic Sync (Optional)
+### 6. Set Up Automatic Sync (Optional)
 
 To automatically sync your tasks daily:
 
