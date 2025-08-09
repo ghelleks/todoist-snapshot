@@ -59,11 +59,7 @@ Use the Apps Script UI to set properties. Paste full sharing URLs; the script wi
    - `TIMEZONE` (optional): e.g., `America/Chicago`
 3. Save the properties
 
-### 5. Verify Configuration
-
-- No setup function is required. Ensure the Script properties listed above are present.
-
-### 6. Test the Sync
+### 5. Test the Sync
 
 Primary entry point:
 1. Run the `syncTodoist()` function from `todoist-snapshot.gs`
@@ -75,7 +71,7 @@ Primary entry point:
    - `syncTodoistToDoc()`
    - `syncTodoistToTextFile()`
 
-### 7. Set Up Automatic Sync (Optional)
+### 6. Set Up Automatic Sync (Optional)
 
 To automatically sync your tasks daily:
 
