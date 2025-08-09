@@ -1,19 +1,121 @@
 // --- CONFIGURATION ---
-// Configuration is now managed in config.gs file using PropertiesService for security.
-// Run setupConfig() in config.gs to set your credentials. 
+// Configuration is managed via Script properties (Project settings → Script properties).
+// Set: TODOIST_TOKEN (required), DOC_ID (optional URL), TEXT_FILE_ID (optional URL), TIMEZONE (optional).
+
+// Configuration helpers (inline): paste sharing URLs or raw IDs into Script Properties.
+// Required properties:
+// - TODOIST_TOKEN: your Todoist API token
+// Optional targets (provide at least one):
+// - DOC_ID: Google Doc URL or ID
+// - TEXT_FILE_ID: Drive text file URL or ID
+// Optional:
+// - TIMEZONE: e.g., America/Chicago
+
+function getTodoistToken() {
+  const token = PropertiesService.getScriptProperties().getProperty('TODOIST_TOKEN');
+  if (!token) {
+    throw new Error('TODOIST_TOKEN is not configured. Set it in Project settings → Script properties.');
+  }
+  return token;
+}
+
+function getDocId() {
+  const raw = PropertiesService.getScriptProperties().getProperty('DOC_ID');
+  if (!raw) {
+    throw new Error('DOC_ID is not configured. Set a Google Doc sharing URL in Script properties, or configure TEXT_FILE_ID instead.');
+  }
+  return extractDriveIdFromInput(raw);
+}
+
+function getTextFileId() {
+  const raw = PropertiesService.getScriptProperties().getProperty('TEXT_FILE_ID');
+  if (!raw) {
+    throw new Error('TEXT_FILE_ID is not configured. Set a Drive file sharing URL in Script properties, or configure DOC_ID instead.');
+  }
+  return extractDriveIdFromInput(raw);
+}
+
+function getTimezone() {
+  const timezone = PropertiesService.getScriptProperties().getProperty('TIMEZONE');
+  return timezone || 'America/Chicago';
+}
+
+function extractDriveIdFromInput(input) {
+  const trimmed = (input || '').trim();
+  if (!trimmed) {
+    throw new Error('Empty ID/URL provided.');
+  }
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return trimmed; // already an ID
+  }
+  if (/\/folders\//i.test(trimmed)) {
+    throw new Error('The provided link appears to be a folder. Please provide a file or document link.');
+  }
+  var match = trimmed.match(/\/[du]\/([a-zA-Z0-9_-]{10,})\b/);
+  if (match && match[1]) return match[1];
+  match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})\b/);
+  if (match && match[1]) return match[1];
+  match = trimmed.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (match && match[1]) return match[1];
+  throw new Error('Unable to extract a file ID from the provided URL. Provide a direct file/document link.');
+}
 
 /**
  * The main function to be run by the trigger.
  * It fetches data from Todoist and writes it to a Google Doc.
+ * @param {{tasks: Array, projects: Array}=} preFetchedData Optional pre-fetched data to avoid duplicate API calls
  */
-function syncTodoistToDoc() {
+function syncTodoistToDoc(preFetchedData) {
   try {
-    const todoistData = getTodoistData();
+    const todoistData = preFetchedData || getTodoistData();
     writeTasksToDoc(todoistData.tasks, todoistData.projects);
     Logger.log('Successfully synced tasks.');
   } catch (e) {
     Logger.log('Failed to sync tasks: ' + e.toString());
     Logger.log(e.stack); // Added for more detailed error logging.
+  }
+}
+
+/**
+ * The main function to sync to a plain text file in Drive instead of a Google Doc.
+ * @param {{tasks: Array, projects: Array}=} preFetchedData Optional pre-fetched data to avoid duplicate API calls
+ */
+function syncTodoistToTextFile(preFetchedData) {
+  try {
+    const todoistData = preFetchedData || getTodoistData();
+    writeTasksToTextFile(todoistData.tasks, todoistData.projects);
+    Logger.log('Successfully synced tasks to text file.');
+  } catch (e) {
+    Logger.log('Failed to sync tasks to text file: ' + e.toString());
+    Logger.log(e.stack);
+  }
+}
+
+/**
+ * Unified sync function. Checks configured targets and performs the appropriate sync(s).
+ * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
+ */
+function syncTodoist() {
+  const properties = PropertiesService.getScriptProperties();
+  const hasDoc = !!properties.getProperty('DOC_ID');
+  const hasText = !!properties.getProperty('TEXT_FILE_ID');
+
+  if (!hasDoc && !hasText) {
+    throw new Error('No output targets configured. Set DOC_ID and/or TEXT_FILE_ID via setupConfig().');
+  }
+
+  if (hasDoc && hasText) {
+    const data = getTodoistData();
+    syncTodoistToDoc(data);
+    syncTodoistToTextFile(data);
+    return;
+  }
+
+  if (hasDoc) {
+    syncTodoistToDoc();
+  }
+  if (hasText) {
+    syncTodoistToTextFile();
   }
 }
 
@@ -92,6 +194,93 @@ function writeTasksToDoc(tasks, projects) {
       formatListItem(listItem, task);
     }
   }
+}
+
+/**
+ * Builds a plain-text representation of the tasks grouped by project.
+ * @param {Array} tasks
+ * @param {Array} projects
+ * @returns {string}
+ */
+function buildPlainTextForTasks(tasks, projects) {
+  const lines = [];
+  const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
+  lines.push(title, '');
+
+  if (!tasks || tasks.length === 0) {
+    lines.push('No tasks due today.');
+    return lines.join('\n');
+  }
+
+  const projectMap = new Map(projects.map(function(p) { return [p.id, p.name]; }));
+
+  const tasksByProject = tasks.reduce(function(acc, task) {
+    const projectId = task.project_id || 'inbox';
+    if (!acc[projectId]) acc[projectId] = [];
+    acc[projectId].push(task);
+    return acc;
+  }, {});
+
+  const sortedProjectIds = Object.keys(tasksByProject).sort(function(a, b) {
+    if (a === 'inbox') return -1;
+    if (b === 'inbox') return 1;
+    return projectMap.get(a).localeCompare(projectMap.get(b));
+  });
+
+  for (var i = 0; i < sortedProjectIds.length; i++) {
+    var projectId = sortedProjectIds[i];
+    var projectName = (projectId === 'inbox') ? 'Inbox' : projectMap.get(projectId);
+    lines.push(projectName + ':');
+
+    var projectTasks = tasksByProject[projectId];
+    for (var j = 0; j < projectTasks.length; j++) {
+      var task = projectTasks[j];
+
+      var priorityPrefix = '';
+      if (task.priority === 4) priorityPrefix = '(P1) ';
+      if (task.priority === 3) priorityPrefix = '(P2) ';
+      if (task.priority === 2) priorityPrefix = '(P3) ';
+
+      var content = task.content || '';
+      var description = task.description ? ' — ' + task.description : '';
+
+      var dueDateString = '';
+      if (task.due) {
+        if (task.due.datetime) {
+          var dateTime = new Date(task.due.datetime);
+          dueDateString = ' (Due: ' + Utilities.formatDate(dateTime, getTimezone(), "MMM d, yyyy 'at' h:mm a") + ')';
+        } else if (task.due.date) {
+          var dateParts = task.due.date.split('-');
+          var dateOnly = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+          dueDateString = ' (Due: ' + Utilities.formatDate(dateOnly, 'UTC', 'MMM d, yyyy') + ')';
+        }
+      }
+
+      var labelsSuffix = '';
+      if (task.labels && task.labels.length > 0) {
+        labelsSuffix = ' [' + task.labels.join(', ') + ']';
+      }
+
+      var line = '- ' + priorityPrefix + content + description + dueDateString + labelsSuffix;
+      lines.push(line);
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Writes the tasks to a plain text file in Drive (overwrites file content).
+ * @param {Array} tasks
+ * @param {Array} projects
+ */
+function writeTasksToTextFile(tasks, projects) {
+  var fileId = getTextFileId();
+  var file = DriveApp.getFileById(fileId);
+  var text = buildPlainTextForTasks(tasks, projects);
+  file.setContent(text);
 }
 
 /**

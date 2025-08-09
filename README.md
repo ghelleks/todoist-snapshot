@@ -1,11 +1,12 @@
-# Todoist to Google Docs Sync
+# Todoist to Google Docs or Text File Sync
 
-This Google Apps Script automatically syncs your Todoist tasks to a Google Document, creating a formatted daily task list with priorities, due dates, descriptions, and labels.
+This Google Apps Script automatically syncs your Todoist tasks to a Google Document or a plain text file, creating a daily task list with priorities, due dates, descriptions, and labels.
 
 ## Features
 
 - ✅ Fetches tasks with due dates from Todoist
 - 📝 Creates formatted Google Doc with grouped tasks by project
+- 📄 Optionally exports to a plain text file in Google Drive
 - 🏷️ Displays task priorities (P1, P2, P3), labels, and descriptions
 - 📅 Shows due dates and times in your preferred timezone
 - ✨ Supports Markdown formatting (bold, italic, links)
@@ -16,7 +17,7 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 
 - Google account with access to Google Apps Script
 - Todoist account with API access
-- A Google Document where you want the tasks to be written
+- A Google Document or a plain text file in Google Drive where you want the tasks to be written
 
 ## Setup Instructions
 
@@ -26,51 +27,53 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 2. Scroll down to "API token" section
 3. Copy your API token (it will look like: `0123456789abcdef0123456789abcdef01234567`)
 
-### 2. Create a Google Document
+### 2. Create a Google Document or a Plain Text File
 
+You can target either a Google Doc (rich formatting) or a plain text file (simple list). Use one or both.
+
+#### Option A: Google Doc
 1. Create a new Google Document where your tasks will be synced
-2. Copy the document ID from the URL
-   - Example URL: `https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit`
-   - Document ID: `1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms`
+2. Copy the document link (URL). Example: `https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit`
+
+#### Option B: Plain Text File
+1. In Google Drive, create or upload a `.txt` file (e.g., `todoist-snapshot.txt`)
+2. Right-click the file → Get link → Copy link. Example: `https://drive.google.com/file/d/1AbCdEFghIJklMNopQRstuVWxyz123456/view?usp=sharing`
 
 ### 3. Set Up Google Apps Script
 
 1. Go to [Google Apps Script](https://script.google.com/)
 2. Create a new project
 3. Delete the default `Code.gs` content
-4. Create two new files in your project:
+4. Create one file in your project:
    - `todoist-snapshot.gs` (copy the contents from this repository)
-   - `config.gs` (copy the contents from this repository)
 
-### 4. Configure Your Credentials
+### 4. Configure Script Properties (URLs + Token)
 
-1. In the Google Apps Script editor, open `config.gs`
-2. Find the `setupConfig()` function
-3. Replace the placeholder values with your actual credentials:
-   ```javascript
-   const config = {
-     'TODOIST_TOKEN': 'your_actual_todoist_token_here',
-     'DOC_ID': 'your_actual_google_doc_id_here',
-     'TIMEZONE': 'America/Chicago' // Optional: change to your timezone
-   };
-   ```
-4. Save the file
-5. Run the `setupConfig()` function:
-   - Select `setupConfig` from the function dropdown
-   - Click the "Run" button (▶️)
-   - Authorize the script when prompted
-6. **Important**: After running `setupConfig()`, remove or comment out your actual credentials from the `config.gs` file for security
+Use the Apps Script UI to set properties. Paste full sharing URLs; the script will extract IDs automatically.
+
+1. In the Apps Script editor, open Project settings (gear icon) → Script properties → Add script property
+2. Add these properties:
+   - `TODOIST_TOKEN`: your Todoist API token
+   - `DOC_ID` (optional): Google Doc sharing URL if you want Doc output
+   - `TEXT_FILE_ID` (optional): Drive file sharing URL (.txt) if you want text output
+   - `TIMEZONE` (optional): e.g., `America/Chicago`
+3. Save the properties
 
 ### 5. Verify Configuration
 
-1. Run the `verifyConfig()` function to ensure everything is set up correctly
-2. Check the execution log to confirm all credentials are configured
+- No setup function is required. Ensure the Script properties listed above are present.
 
 ### 6. Test the Sync
 
-1. Run the `syncTodoistToDoc()` function from `todoist-snapshot.gs`
-2. Check your Google Document to see if tasks appear
-3. Verify the formatting looks correct
+Primary entry point:
+1. Run the `syncTodoist()` function from `todoist-snapshot.gs`
+2. Behavior:
+   - If only `DOC_ID` is set, it updates the Google Doc
+   - If only `TEXT_FILE_ID` is set, it overwrites the text file
+   - If both are set, it fetches once and updates both outputs
+3. Optionally, you can run the specific targets directly:
+   - `syncTodoistToDoc()`
+   - `syncTodoistToTextFile()`
 
 ### 7. Set Up Automatic Sync (Optional)
 
@@ -79,7 +82,7 @@ To automatically sync your tasks daily:
 1. In Google Apps Script, click on the clock icon (⏰) in the left sidebar (Triggers)
 2. Click "+ Add Trigger"
 3. Configure the trigger:
-   - Choose which function to run: `syncTodoistToDoc`
+   - Choose which function to run: `syncTodoist`
    - Choose which deployment should run: `Head`
    - Select event source: `Time-driven`
    - Select type of time based trigger: `Day timer`
@@ -99,7 +102,16 @@ The script:
    - Task descriptions
    - Labels in brackets
    - Markdown formatting (bold, italic, links)
-4. **Updates Document**: Clears the Google Doc and writes the new task list
+4. **Writes Output**:
+   - If targeting a Google Doc: clears the document and writes the formatted list
+   - If targeting a text file: builds a plaintext snapshot and overwrites the file content
+
+## Text File Export Notes
+
+- Overwrite behavior: each run replaces the entire file content
+- No ID needed: paste the Drive file URL into config; the script extracts the ID automatically
+- Formatting: plaintext output includes priorities, descriptions, due dates, and labels, but no rich formatting
+- Permissions: the first run will prompt to authorize Drive access (used by `DriveApp`)
 
 ## Configuration Options
 
@@ -126,7 +138,7 @@ By default, the script fetches tasks with due dates using the filter `!(no due d
    - Verify your API token is correct
 
 2. **"DOC_ID is not configured" error**
-   - Ensure you copied the correct Google Doc ID
+   - Ensure you pasted the Google Doc URL in config
    - Make sure the document exists and is accessible
 
 3. **Tasks not appearing**
@@ -140,9 +152,7 @@ By default, the script fetches tasks with due dates using the filter `!(no due d
 
 ### Debug Functions
 
-The `config.gs` file includes helpful functions:
-- `verifyConfig()` - Check if all configuration is set up correctly
-- `clearConfig()` - Remove all stored configuration (use with caution)
+- Not required. Configuration is read directly from Script properties.
 
 ## Security Notes
 
