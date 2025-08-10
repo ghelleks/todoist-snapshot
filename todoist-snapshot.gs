@@ -23,11 +23,15 @@
  * - TEXT_FILE_ID: Optional text file URL/ID for plain text export
  * - JSON_FILE_ID: Optional JSON file URL/ID for raw data export
  * - TIMEZONE: Optional timezone (default: America/Chicago)
+ * - DEBUG: Optional debug flag (set to "true" to enable debug logging)
  * 
  * Usage:
  * - Run syncTodoist() to export to all configured targets
  * - Run individual functions for specific exports
  */
+
+// Debug flag - set to true to enable detailed logging
+const DEBUG = PropertiesService.getScriptProperties().getProperty('DEBUG') === 'true';
 
 /**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
@@ -43,12 +47,18 @@ function syncTodoist() {
     throw new Error('No output targets configured. Set DOC_ID, TEXT_FILE_ID, and/or JSON_FILE_ID in Script properties.');
   }
 
+  Logger.log('🚀 Starting Todoist sync...');
+  if (DEBUG) {
+    Logger.log('Targets: Doc=' + hasDoc + ', Text=' + hasText + ', JSON=' + hasJson);
+  }
+
   // If multiple targets are set, fetch once and update all
   if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
     const data = getTodoistData();
     if (hasDoc) syncTodoistToDoc(data);
     if (hasText) syncTodoistToTextFile(data);
     if (hasJson) syncTodoistToJsonFile(data);
+    Logger.log('✅ Todoist sync completed successfully');
     return;
   }
 
@@ -62,6 +72,7 @@ function syncTodoist() {
   if (hasJson) {
     syncTodoistToJsonFile();
   }
+  Logger.log('✅ Todoist sync completed successfully');
 }
 
 function getTodoistToken() {
@@ -130,10 +141,12 @@ function syncTodoistToDoc(preFetchedData) {
   try {
     const todoistData = preFetchedData || getTodoistData();
     writeTasksToDoc(todoistData.tasks, todoistData.projects);
-    Logger.log('Successfully synced tasks.');
+    Logger.log('✅ Successfully synced tasks to Google Doc');
   } catch (e) {
-    Logger.log('Failed to sync tasks: ' + e.toString());
-    Logger.log(e.stack); // Added for more detailed error logging.
+    Logger.log('❌ Failed to sync tasks to Google Doc: ' + e.toString());
+    if (DEBUG) {
+      Logger.log(e.stack);
+    }
   }
 }
 
@@ -145,10 +158,12 @@ function syncTodoistToTextFile(preFetchedData) {
   try {
     const todoistData = preFetchedData || getTodoistData();
     writeTasksToTextFile(todoistData.tasks, todoistData.projects);
-    Logger.log('Successfully synced tasks to text file.');
+    Logger.log('✅ Successfully synced tasks to text file');
   } catch (e) {
-    Logger.log('Failed to sync tasks to text file: ' + e.toString());
-    Logger.log(e.stack);
+    Logger.log('❌ Failed to sync tasks to text file: ' + e.toString());
+    if (DEBUG) {
+      Logger.log(e.stack);
+    }
   }
 }
 
@@ -160,10 +175,12 @@ function syncTodoistToJsonFile(preFetchedData) {
   try {
     const todoistData = preFetchedData || getTodoistData();
     writeTasksToJsonFile(todoistData.rawTasks, todoistData.projects);
-    Logger.log('Successfully synced tasks to JSON file.');
+    Logger.log('✅ Successfully synced tasks to JSON file');
   } catch (e) {
-    Logger.log('Failed to sync tasks to JSON file: ' + e.toString());
-    Logger.log(e.stack);
+    Logger.log('❌ Failed to sync tasks to JSON file: ' + e.toString());
+    if (DEBUG) {
+      Logger.log(e.stack);
+    }
   }
 }
 
@@ -205,15 +222,19 @@ function getTodoistData() {
  * @returns {Array} Array with sub-tasks grouped under their parents
  */
 function fetchTasksWithSubtasks(tasks, params) {
-  Logger.log('=== FETCH SUBTASKS DEBUG ===');
-  Logger.log('Total tasks to process: ' + tasks.length);
+  if (DEBUG) {
+    Logger.log('=== FETCH SUBTASKS DEBUG ===');
+    Logger.log('Total tasks to process: ' + tasks.length);
+  }
   
   const result = [];
   
   // For each task, fetch its sub-tasks
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
-    Logger.log('Processing task ' + (i+1) + ': ' + task.content);
+    if (DEBUG) {
+      Logger.log('Processing task ' + (i+1) + ': ' + task.content);
+    }
     
     // Fetch sub-tasks for this task
     const subTaskUrl = 'https://api.todoist.com/rest/v2/tasks?parent_id=' + task.id;
@@ -222,20 +243,26 @@ function fetchTasksWithSubtasks(tasks, params) {
       const subTasks = JSON.parse(subTaskResponse.getContentText());
       
       if (subTasks && subTasks.length > 0) {
-        Logger.log('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
+        if (DEBUG) {
+          Logger.log('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
+        }
         task.subtasks = subTasks;
       } else {
         task.subtasks = [];
       }
     } catch (error) {
-      Logger.log('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
+      if (DEBUG) {
+        Logger.log('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
+      }
       task.subtasks = [];
     }
     
     result.push(task);
   }
   
-  Logger.log('Final result: ' + result.length + ' tasks with sub-tasks attached');
+  if (DEBUG) {
+    Logger.log('Final result: ' + result.length + ' tasks with sub-tasks attached');
+  }
   return result;
 }
 
@@ -304,18 +331,20 @@ function writeTasksToDoc(tasks, projects) {
  */
 function buildPlainTextForTasks(tasks, projects) {
   // Add this debugging at the start
-  Logger.log('=== TEXT EXPORT DEBUG ===');
-  Logger.log('Tasks received: ' + (tasks ? tasks.length : 'null'));
-  
-  if (tasks && tasks.length > 0) {
-    let subtaskCount = 0;
-    tasks.forEach((task, index) => {
-      if (task.subtasks && task.subtasks.length > 0) {
-        Logger.log('Task ' + index + ' (' + task.content + ') has ' + task.subtasks.length + ' sub-tasks');
-        subtaskCount += task.subtasks.length;
-      }
-    });
-    Logger.log('Total sub-tasks found: ' + subtaskCount);
+  if (DEBUG) {
+    Logger.log('=== TEXT EXPORT DEBUG ===');
+    Logger.log('Tasks received: ' + (tasks ? tasks.length : 'null'));
+    
+    if (tasks && tasks.length > 0) {
+      let subtaskCount = 0;
+      tasks.forEach((task, index) => {
+        if (task.subtasks && task.subtasks.length > 0) {
+          Logger.log('Task ' + index + ' (' + task.content + ') has ' + task.subtasks.length + ' sub-tasks');
+          subtaskCount += task.subtasks.length;
+        }
+      });
+      Logger.log('Total sub-tasks found: ' + subtaskCount);
+    }
   }
   
   const lines = [];
