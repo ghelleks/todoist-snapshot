@@ -29,6 +29,41 @@
  * - Run individual functions for specific exports
  */
 
+/**
+ * Unified sync function. Checks configured targets and performs the appropriate sync(s).
+ * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
+ */
+function syncTodoist() {
+  const properties = PropertiesService.getScriptProperties();
+  const hasDoc = !!properties.getProperty('DOC_ID');
+  const hasText = !!properties.getProperty('TEXT_FILE_ID');
+  const hasJson = !!properties.getProperty('JSON_FILE_ID');
+
+  if (!hasDoc && !hasText && !hasJson) {
+    throw new Error('No output targets configured. Set DOC_ID, TEXT_FILE_ID, and/or JSON_FILE_ID in Script properties.');
+  }
+
+  // If multiple targets are set, fetch once and update all
+  if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
+    const data = getTodoistData();
+    if (hasDoc) syncTodoistToDoc(data);
+    if (hasText) syncTodoistToTextFile(data);
+    if (hasJson) syncTodoistToJsonFile(data);
+    return;
+  }
+
+  // Single target
+  if (hasDoc) {
+    syncTodoistToDoc();
+  }
+  if (hasText) {
+    syncTodoistToTextFile();
+  }
+  if (hasJson) {
+    syncTodoistToJsonFile();
+  }
+}
+
 function getTodoistToken() {
   const token = PropertiesService.getScriptProperties().getProperty('TODOIST_TOKEN');
   if (!token) {
@@ -133,41 +168,6 @@ function syncTodoistToJsonFile(preFetchedData) {
 }
 
 /**
- * Unified sync function. Checks configured targets and performs the appropriate sync(s).
- * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
- */
-function syncTodoist() {
-  const properties = PropertiesService.getScriptProperties();
-  const hasDoc = !!properties.getProperty('DOC_ID');
-  const hasText = !!properties.getProperty('TEXT_FILE_ID');
-  const hasJson = !!properties.getProperty('JSON_FILE_ID');
-
-  if (!hasDoc && !hasText && !hasJson) {
-    throw new Error('No output targets configured. Set DOC_ID, TEXT_FILE_ID, and/or JSON_FILE_ID in Script properties.');
-  }
-
-  // If multiple targets are set, fetch once and update all
-  if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
-    const data = getTodoistData();
-    if (hasDoc) syncTodoistToDoc(data);
-    if (hasText) syncTodoistToTextFile(data);
-    if (hasJson) syncTodoistToJsonFile(data);
-    return;
-  }
-
-  // Single target
-  if (hasDoc) {
-    syncTodoistToDoc();
-  }
-  if (hasText) {
-    syncTodoistToTextFile();
-  }
-  if (hasJson) {
-    syncTodoistToJsonFile();
-  }
-}
-
-/**
  * Fetches tasks and projects from the Todoist API.
  * @returns {Object} An object containing arrays of tasks and projects.
  */
@@ -181,15 +181,14 @@ function getTodoistData() {
     'muteHttpExceptions': true
   };
   
-  // Fetch all tasks (including sub-tasks) with due dates
-  // The API includes sub-tasks by default, but we ensure we get all tasks
+  // Fetch tasks with due date filter
   const taskFilter = encodeURIComponent('!(no due date)');
   const taskUrl = 'https://api.todoist.com/rest/v2/tasks?filter=' + taskFilter;
   const taskResponse = UrlFetchApp.fetch(taskUrl, params);
   const rawTasks = JSON.parse(taskResponse.getContentText());
 
-  // Sort tasks to group parent tasks with their sub-tasks
-  const sortedTasks = sortTasksWithSubtasks(rawTasks);
+  // For each task, fetch its sub-tasks and group them
+  const sortedTasks = fetchTasksWithSubtasks(rawTasks, params);
 
   // Fetch all projects
   const projectUrl = 'https://api.todoist.com/rest/v2/projects';
@@ -200,48 +199,43 @@ function getTodoistData() {
 }
 
 /**
- * Sorts tasks to group parent tasks with their sub-tasks.
+ * Fetches sub-tasks for each task and groups them together.
  * @param {Array} tasks - Array of task objects from Todoist API
- * @returns {Array} Sorted array with sub-tasks grouped under their parents
+ * @param {Object} params - API request parameters
+ * @returns {Array} Array with sub-tasks grouped under their parents
  */
-function sortTasksWithSubtasks(tasks) {
-  // Create a map of parent tasks
-  const parentTasks = new Map();
-  const subTasks = [];
+function fetchTasksWithSubtasks(tasks, params) {
+  Logger.log('=== FETCH SUBTASKS DEBUG ===');
+  Logger.log('Total tasks to process: ' + tasks.length);
   
-  // Separate parent tasks and sub-tasks
-  tasks.forEach(task => {
-    if (task.parent_id) {
-      subTasks.push(task);
-    } else {
-      parentTasks.set(task.id, task);
-    }
-  });
-  
-  // Group sub-tasks under their parents
-  subTasks.forEach(subTask => {
-    const parent = parentTasks.get(subTask.parent_id);
-    if (parent) {
-      if (!parent.subtasks) {
-        parent.subtasks = [];
-      }
-      parent.subtasks.push(subTask);
-    }
-  });
-  
-  // Sort sub-tasks within each parent
-  parentTasks.forEach(parent => {
-    if (parent.subtasks) {
-      parent.subtasks.sort((a, b) => a.order - b.order);
-    }
-  });
-  
-  // Return sorted array: parents first, then standalone tasks
   const result = [];
-  parentTasks.forEach(parent => {
-    result.push(parent);
-  });
   
+  // For each task, fetch its sub-tasks
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    Logger.log('Processing task ' + (i+1) + ': ' + task.content);
+    
+    // Fetch sub-tasks for this task
+    const subTaskUrl = 'https://api.todoist.com/rest/v2/tasks?parent_id=' + task.id;
+    try {
+      const subTaskResponse = UrlFetchApp.fetch(subTaskUrl, params);
+      const subTasks = JSON.parse(subTaskResponse.getContentText());
+      
+      if (subTasks && subTasks.length > 0) {
+        Logger.log('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
+        task.subtasks = subTasks;
+      } else {
+        task.subtasks = [];
+      }
+    } catch (error) {
+      Logger.log('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
+      task.subtasks = [];
+    }
+    
+    result.push(task);
+  }
+  
+  Logger.log('Final result: ' + result.length + ' tasks with sub-tasks attached');
   return result;
 }
 
@@ -309,6 +303,21 @@ function writeTasksToDoc(tasks, projects) {
  * @returns {string}
  */
 function buildPlainTextForTasks(tasks, projects) {
+  // Add this debugging at the start
+  Logger.log('=== TEXT EXPORT DEBUG ===');
+  Logger.log('Tasks received: ' + (tasks ? tasks.length : 'null'));
+  
+  if (tasks && tasks.length > 0) {
+    let subtaskCount = 0;
+    tasks.forEach((task, index) => {
+      if (task.subtasks && task.subtasks.length > 0) {
+        Logger.log('Task ' + index + ' (' + task.content + ') has ' + task.subtasks.length + ' sub-tasks');
+        subtaskCount += task.subtasks.length;
+      }
+    });
+    Logger.log('Total sub-tasks found: ' + subtaskCount);
+  }
+  
   const lines = [];
   const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
   lines.push(title, '');
