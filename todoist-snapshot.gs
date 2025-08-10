@@ -133,18 +133,68 @@ function getTodoistData() {
     'muteHttpExceptions': true
   };
   
-  // Fetch tasks due today or overdue
+  // Fetch all tasks (including sub-tasks) with due dates
+  // The API includes sub-tasks by default, but we ensure we get all tasks
   const taskFilter = encodeURIComponent('!(no due date)');
   const taskUrl = 'https://api.todoist.com/rest/v2/tasks?filter=' + taskFilter;
   const taskResponse = UrlFetchApp.fetch(taskUrl, params);
   const tasks = JSON.parse(taskResponse.getContentText());
+
+  // Sort tasks to group parent tasks with their sub-tasks
+  const sortedTasks = sortTasksWithSubtasks(tasks);
 
   // Fetch all projects
   const projectUrl = 'https://api.todoist.com/rest/v2/projects';
   const projectResponse = UrlFetchApp.fetch(projectUrl, params);
   const projects = JSON.parse(projectResponse.getContentText());
   
-  return { tasks, projects };
+  return { tasks: sortedTasks, projects };
+}
+
+/**
+ * Sorts tasks to group parent tasks with their sub-tasks.
+ * @param {Array} tasks - Array of task objects from Todoist API
+ * @returns {Array} Sorted array with sub-tasks grouped under their parents
+ */
+function sortTasksWithSubtasks(tasks) {
+  // Create a map of parent tasks
+  const parentTasks = new Map();
+  const subTasks = [];
+  
+  // Separate parent tasks and sub-tasks
+  tasks.forEach(task => {
+    if (task.parent_id) {
+      subTasks.push(task);
+    } else {
+      parentTasks.set(task.id, task);
+    }
+  });
+  
+  // Group sub-tasks under their parents
+  subTasks.forEach(subTask => {
+    const parent = parentTasks.get(subTask.parent_id);
+    if (parent) {
+      if (!parent.subtasks) {
+        parent.subtasks = [];
+      }
+      parent.subtasks.push(subTask);
+    }
+  });
+  
+  // Sort sub-tasks within each parent
+  parentTasks.forEach(parent => {
+    if (parent.subtasks) {
+      parent.subtasks.sort((a, b) => a.order - b.order);
+    }
+  });
+  
+  // Return sorted array: parents first, then standalone tasks
+  const result = [];
+  parentTasks.forEach(parent => {
+    result.push(parent);
+  });
+  
+  return result;
 }
 
 /**
@@ -192,6 +242,14 @@ function writeTasksToDoc(tasks, projects) {
       const listItem = body.appendListItem('');
       // Use the dedicated formatting function for each task.
       formatListItem(listItem, task);
+      
+      // Add sub-tasks if they exist
+      if (task.subtasks && task.subtasks.length > 0) {
+        for (const subTask of task.subtasks) {
+          const subListItem = body.appendListItem('');
+          formatListItem(subListItem, subTask, true); // true indicates it's a sub-task
+        }
+      }
     }
   }
 }
@@ -263,6 +321,41 @@ function buildPlainTextForTasks(tasks, projects) {
 
       var line = '- ' + priorityPrefix + content + description + dueDateString + labelsSuffix;
       lines.push(line);
+      
+      // Add sub-tasks if they exist
+      if (task.subtasks && task.subtasks.length > 0) {
+        for (var k = 0; k < task.subtasks.length; k++) {
+          var subTask = task.subtasks[k];
+          
+          var subPriorityPrefix = '';
+          if (subTask.priority === 4) subPriorityPrefix = '(P1) ';
+          if (subTask.priority === 3) subPriorityPrefix = '(P2) ';
+          if (subTask.priority === 2) subPriorityPrefix = '(P3) ';
+          
+          var subContent = subTask.content || '';
+          var subDescription = subTask.description ? ' — ' + subTask.description : '';
+          
+          var subDueDateString = '';
+          if (subTask.due) {
+            if (subTask.due.datetime) {
+              var subDateTime = new Date(subTask.due.datetime);
+              subDueDateString = ' (Due: ' + Utilities.formatDate(subDateTime, getTimezone(), "MMM d, yyyy 'at' h:mm a") + ')';
+            } else if (subTask.due.date) {
+              var subDateParts = subTask.due.date.split('-');
+              var subDateOnly = new Date(subDateParts[0], subDateParts[1] - 1, subDateParts[2]);
+              subDueDateString = ' (Due: ' + Utilities.formatDate(subDateOnly, 'UTC', 'MMM d, yyyy') + ')';
+            }
+          }
+          
+          var subLabelsSuffix = '';
+          if (subTask.labels && subTask.labels.length > 0) {
+            subLabelsSuffix = ' [' + subTask.labels.join(', ') + ']';
+          }
+          
+          var subLine = '  - ' + subPriorityPrefix + subContent + subDescription + subDueDateString + subLabelsSuffix;
+          lines.push(subLine);
+        }
+      }
     }
 
     lines.push('');
@@ -287,8 +380,9 @@ function writeTasksToTextFile(tasks, projects) {
  * Formats a single list item with bold task content, description, priority, labels, and Markdown.
  * @param {ListItem} listItem - The Google Docs ListItem element to format.
  * @param {Object} task - The task object from Todoist.
+ * @param {boolean} isSubTask - Whether this is a sub-task (for indentation).
  */
-function formatListItem(listItem, task) {
+function formatListItem(listItem, task, isSubTask = false) {
   // --- 1. Construct all the text pieces ---
   let priorityPrefix = '';
   if (task.priority === 4) priorityPrefix = '(P1) ';
@@ -324,6 +418,11 @@ function formatListItem(listItem, task) {
   // --- 2. Append pieces and apply base formatting ---
   if (priorityPrefix) {
     listItem.appendText(priorityPrefix);
+  }
+  
+  // Add indentation for sub-tasks
+  if (isSubTask) {
+    listItem.setIndentStart(36); // 36 points = 0.5 inches indentation
   }
   
   const contentStart = listItem.getText().length;
