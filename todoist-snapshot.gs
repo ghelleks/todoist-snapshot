@@ -37,11 +37,15 @@ function getTextFileId() {
 }
 
 function getJsonFileId() {
+  Logger.log('Getting JSON_FILE_ID...');
   const raw = PropertiesService.getScriptProperties().getProperty('JSON_FILE_ID');
+  Logger.log('Raw JSON_FILE_ID value: ' + (raw ? 'present' : 'missing'));
   if (!raw) {
     throw new Error('JSON_FILE_ID is not configured. Set a Drive file sharing URL in Script properties.');
   }
-  return extractDriveIdFromInput(raw);
+  const fileId = extractDriveIdFromInput(raw);
+  Logger.log('Extracted fileId: ' + fileId);
+  return fileId;
 }
 
 function getTimezone() {
@@ -106,7 +110,9 @@ function syncTodoistToTextFile(preFetchedData) {
  */
 function syncTodoistToJsonFile(preFetchedData) {
   try {
+    Logger.log('Starting syncTodoistToJsonFile...');
     const todoistData = preFetchedData || getTodoistData();
+    Logger.log('Got todoistData, rawTasks length: ' + (todoistData.rawTasks ? todoistData.rawTasks.length : 'undefined'));
     writeTasksToJsonFile(todoistData.rawTasks, todoistData.projects);
     Logger.log('Successfully synced tasks to JSON file.');
   } catch (e) {
@@ -120,10 +126,13 @@ function syncTodoistToJsonFile(preFetchedData) {
  * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
  */
 function syncTodoist() {
+  Logger.log('Starting syncTodoist...');
   const properties = PropertiesService.getScriptProperties();
   const hasDoc = !!properties.getProperty('DOC_ID');
   const hasText = !!properties.getProperty('TEXT_FILE_ID');
   const hasJson = !!properties.getProperty('JSON_FILE_ID');
+  
+  Logger.log('Configuration check: DOC_ID=' + hasDoc + ', TEXT_FILE_ID=' + hasText + ', JSON_FILE_ID=' + hasJson);
 
   if (!hasDoc && !hasText && !hasJson) {
     throw new Error('No output targets configured. Set DOC_ID, TEXT_FILE_ID, and/or JSON_FILE_ID in Script properties.');
@@ -131,23 +140,31 @@ function syncTodoist() {
 
   // If multiple targets are set, fetch once and update all
   if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
+    Logger.log('Multiple targets detected, fetching data once...');
     const data = getTodoistData();
+    Logger.log('Data fetched, tasks: ' + (data.tasks ? data.tasks.length : 0) + ', rawTasks: ' + (data.rawTasks ? data.rawTasks.length : 0));
     if (hasDoc) syncTodoistToDoc(data);
     if (hasText) syncTodoistToTextFile(data);
     if (hasJson) syncTodoistToJsonFile(data);
+    Logger.log('All targets processed.');
     return;
   }
 
   // Single target
+  Logger.log('Single target detected...');
   if (hasDoc) {
+    Logger.log('Processing DOC_ID...');
     syncTodoistToDoc();
   }
   if (hasText) {
+    Logger.log('Processing TEXT_FILE_ID...');
     syncTodoistToTextFile();
   }
   if (hasJson) {
+    Logger.log('Processing JSON_FILE_ID...');
     syncTodoistToJsonFile();
   }
+  Logger.log('Single target processing complete.');
 }
 
 /**
@@ -413,21 +430,33 @@ function writeTasksToTextFile(tasks, projects) {
  * @param {Array} projects - Raw projects array from Todoist API
  */
 function writeTasksToJsonFile(tasks, projects) {
-  var fileId = getJsonFileId();
-  var file = DriveApp.getFileById(fileId);
-  
-  // Create a structured JSON object with metadata
-  var jsonData = {
-    exportDate: new Date().toISOString(),
-    timezone: getTimezone(),
-    tasks: tasks,
-    projects: projects,
-    taskCount: tasks ? tasks.length : 0,
-    projectCount: projects ? projects.length : 0
-  };
-  
-  var jsonString = JSON.stringify(jsonData, null, 2); // Pretty-printed with 2-space indentation
-  file.setContent(jsonString);
+  try {
+    Logger.log('Starting writeTasksToJsonFile...');
+    var fileId = getJsonFileId();
+    Logger.log('Got fileId: ' + fileId);
+    var file = DriveApp.getFileById(fileId);
+    Logger.log('Got file object');
+    
+    // Create a structured JSON object with metadata
+    var jsonData = {
+      exportDate: new Date().toISOString(),
+      timezone: getTimezone(),
+      tasks: tasks,
+      projects: projects,
+      taskCount: tasks ? tasks.length : 0,
+      projectCount: projects ? projects.length : 0
+    };
+    
+    Logger.log('Created jsonData, taskCount: ' + jsonData.taskCount);
+    var jsonString = JSON.stringify(jsonData, null, 2); // Pretty-printed with 2-space indentation
+    Logger.log('JSON string length: ' + jsonString.length);
+    file.setContent(jsonString);
+    Logger.log('File content set successfully');
+  } catch (e) {
+    Logger.log('Error in writeTasksToJsonFile: ' + e.toString());
+    Logger.log(e.stack);
+    throw e;
+  }
 }
 
 /**
