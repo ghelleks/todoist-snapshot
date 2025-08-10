@@ -35,6 +35,14 @@ function getTextFileId() {
   return extractDriveIdFromInput(raw);
 }
 
+function getJsonFileId() {
+  const raw = PropertiesService.getScriptProperties().getProperty('JSON_FILE_ID');
+  if (!raw) {
+    throw new Error('JSON_FILE_ID is not configured. Set a Drive file sharing URL in Script properties.');
+  }
+  return extractDriveIdFromInput(raw);
+}
+
 function getTimezone() {
   const timezone = PropertiesService.getScriptProperties().getProperty('TIMEZONE');
   return timezone || 'America/Chicago';
@@ -92,6 +100,21 @@ function syncTodoistToTextFile(preFetchedData) {
 }
 
 /**
+ * The main function to sync raw Todoist JSON data to a file in Drive.
+ * @param {{tasks: Array, projects: Array}=} preFetchedData Optional pre-fetched data to avoid duplicate API calls
+ */
+function syncTodoistToJsonFile(preFetchedData) {
+  try {
+    const todoistData = preFetchedData || getTodoistData();
+    writeTasksToJsonFile(todoistData.tasks, todoistData.projects);
+    Logger.log('Successfully synced tasks to JSON file.');
+  } catch (e) {
+    Logger.log('Failed to sync tasks to JSON file: ' + e.toString());
+    Logger.log(e.stack);
+  }
+}
+
+/**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
  * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
  */
@@ -99,23 +122,30 @@ function syncTodoist() {
   const properties = PropertiesService.getScriptProperties();
   const hasDoc = !!properties.getProperty('DOC_ID');
   const hasText = !!properties.getProperty('TEXT_FILE_ID');
+  const hasJson = !!properties.getProperty('JSON_FILE_ID');
 
-  if (!hasDoc && !hasText) {
-    throw new Error('No output targets configured. Set DOC_ID and/or TEXT_FILE_ID via setupConfig().');
+  if (!hasDoc && !hasText && !hasJson) {
+    throw new Error('No output targets configured. Set DOC_ID, TEXT_FILE_ID, and/or JSON_FILE_ID in Script properties.');
   }
 
-  if (hasDoc && hasText) {
+  // If multiple targets are set, fetch once and update all
+  if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
     const data = getTodoistData();
-    syncTodoistToDoc(data);
-    syncTodoistToTextFile(data);
+    if (hasDoc) syncTodoistToDoc(data);
+    if (hasText) syncTodoistToTextFile(data);
+    if (hasJson) syncTodoistToJsonFile(data);
     return;
   }
 
+  // Single target
   if (hasDoc) {
     syncTodoistToDoc();
   }
   if (hasText) {
     syncTodoistToTextFile();
+  }
+  if (hasJson) {
+    syncTodoistToJsonFile();
   }
 }
 
@@ -374,6 +404,29 @@ function writeTasksToTextFile(tasks, projects) {
   var file = DriveApp.getFileById(fileId);
   var text = buildPlainTextForTasks(tasks, projects);
   file.setContent(text);
+}
+
+/**
+ * Writes the raw Todoist JSON data to a file in Drive (overwrites file content).
+ * @param {Array} tasks - Raw tasks array from Todoist API
+ * @param {Array} projects - Raw projects array from Todoist API
+ */
+function writeTasksToJsonFile(tasks, projects) {
+  var fileId = getJsonFileId();
+  var file = DriveApp.getFileById(fileId);
+  
+  // Create a structured JSON object with metadata
+  var jsonData = {
+    exportDate: new Date().toISOString(),
+    timezone: getTimezone(),
+    tasks: tasks,
+    projects: projects,
+    taskCount: tasks.length,
+    projectCount: projects.length
+  };
+  
+  var jsonString = JSON.stringify(jsonData, null, 2); // Pretty-printed with 2-space indentation
+  file.setContent(jsonString);
 }
 
 /**

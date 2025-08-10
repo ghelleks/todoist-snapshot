@@ -37,7 +37,7 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 
 ### 3. Create a Google Document or a Plain Text File
 
-You can target either a Google Doc (rich formatting) or a plain text file (simple list). Use one or both.
+You can target a Google Doc (rich formatting), a plain text file (simple list), or a JSON file (raw data). Use one, two, or all three.
 
 #### Option A: Google Doc
 1. Create a new Google Document where your tasks will be synced
@@ -46,6 +46,10 @@ You can target either a Google Doc (rich formatting) or a plain text file (simpl
 #### Option B: Plain Text File
 1. In Google Drive, create or upload a `.txt` file (e.g., `todoist-snapshot.txt`)
 2. Right-click the file → Get link → Copy link. Example: `https://drive.google.com/file/d/1AbCdEFghIJklMNopQRstuVWxyz123456/view?usp=sharing`
+
+#### Option C: JSON File (Raw Data)
+1. In Google Drive, create or upload a `.json` file (e.g., `todoist-raw-data.json`)
+2. Right-click the file → Get link → Copy link. Example: `https://drive.google.com/file/d/1XyZabcDEFghIJklMNopQRstuVWxyz789/view?usp=sharing`
 
 ### 4. Configure Script Properties (paste URLs + token)
 
@@ -56,6 +60,7 @@ Use the Apps Script UI to set properties. Paste full sharing URLs; the script wi
    - `TODOIST_TOKEN`: your Todoist API token
    - `DOC_ID` (optional): Google Doc sharing URL if you want Doc output
    - `TEXT_FILE_ID` (optional): Drive file sharing URL (.txt) if you want text output
+   - `JSON_FILE_ID` (optional): Drive file sharing URL (.json) if you want raw JSON data
    - `TIMEZONE` (optional): e.g., `America/Chicago`
 3. Save the properties
 
@@ -66,10 +71,12 @@ Primary entry point:
 2. Behavior:
    - If only `DOC_ID` is set, it updates the Google Doc
    - If only `TEXT_FILE_ID` is set, it overwrites the text file
-   - If both are set, it fetches once and updates both outputs
+   - If only `JSON_FILE_ID` is set, it exports raw JSON data
+   - If multiple are set, it fetches once and updates all outputs
 3. Optionally, you can run the specific targets directly:
    - `syncTodoistToDoc()`
    - `syncTodoistToTextFile()`
+   - `syncTodoistToJsonFile()`
 
 ### 6. Set Up Automatic Sync (Optional)
 
@@ -101,13 +108,21 @@ The script:
 4. **Writes Output**:
    - If targeting a Google Doc: clears the document and writes the formatted list
    - If targeting a text file: builds a plaintext snapshot and overwrites the file content
+   - If targeting a JSON file: exports raw Todoist API data with metadata
 
-## Text File Export Notes
+## Export Format Notes
 
+### Text File Export
 - Overwrite behavior: each run replaces the entire file content
 - No ID needed: paste the Drive file URL into config; the script extracts the ID automatically
 - Formatting: plaintext output includes priorities, descriptions, due dates, and labels, but no rich formatting
 - Permissions: the first run will prompt to authorize Drive access (used by `DriveApp`)
+
+### JSON File Export
+- Raw data: preserves all Todoist API fields including metadata, IDs, and relationships
+- Structure: includes export timestamp, timezone, task count, and project count
+- Format: pretty-printed JSON with 2-space indentation for readability
+- Use case: ideal for data analysis, backup, or integration with other tools
 
 ## Configuration Options
 
