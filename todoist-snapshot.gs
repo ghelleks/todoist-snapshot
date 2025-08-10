@@ -8,6 +8,7 @@
 // Optional targets (provide at least one):
 // - DOC_ID: Google Doc URL or ID
 // - TEXT_FILE_ID: Drive text file URL or ID
+// - JSON_FILE_ID: Drive JSON file URL or ID
 // Optional:
 // - TIMEZONE: e.g., America/Chicago
 
@@ -106,7 +107,7 @@ function syncTodoistToTextFile(preFetchedData) {
 function syncTodoistToJsonFile(preFetchedData) {
   try {
     const todoistData = preFetchedData || getTodoistData();
-    writeTasksToJsonFile(todoistData.tasks, todoistData.projects);
+    writeTasksToJsonFile(todoistData.rawTasks, todoistData.projects);
     Logger.log('Successfully synced tasks to JSON file.');
   } catch (e) {
     Logger.log('Failed to sync tasks to JSON file: ' + e.toString());
@@ -168,17 +169,17 @@ function getTodoistData() {
   const taskFilter = encodeURIComponent('!(no due date)');
   const taskUrl = 'https://api.todoist.com/rest/v2/tasks?filter=' + taskFilter;
   const taskResponse = UrlFetchApp.fetch(taskUrl, params);
-  const tasks = JSON.parse(taskResponse.getContentText());
+  const rawTasks = JSON.parse(taskResponse.getContentText());
 
   // Sort tasks to group parent tasks with their sub-tasks
-  const sortedTasks = sortTasksWithSubtasks(tasks);
+  const sortedTasks = sortTasksWithSubtasks(rawTasks);
 
   // Fetch all projects
   const projectUrl = 'https://api.todoist.com/rest/v2/projects';
   const projectResponse = UrlFetchApp.fetch(projectUrl, params);
   const projects = JSON.parse(projectResponse.getContentText());
   
-  return { tasks: sortedTasks, projects };
+  return { tasks: sortedTasks, rawTasks: rawTasks, projects };
 }
 
 /**
@@ -421,8 +422,8 @@ function writeTasksToJsonFile(tasks, projects) {
     timezone: getTimezone(),
     tasks: tasks,
     projects: projects,
-    taskCount: tasks.length,
-    projectCount: projects.length
+    taskCount: tasks ? tasks.length : 0,
+    projectCount: projects ? projects.length : 0
   };
   
   var jsonString = JSON.stringify(jsonData, null, 2); // Pretty-printed with 2-space indentation
