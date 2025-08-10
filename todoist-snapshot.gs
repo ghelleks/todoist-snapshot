@@ -293,6 +293,20 @@ function writeTasksToDoc(tasks, projects) {
  */
 function buildPlainTextForTasks(tasks, projects) {
   const lines = [];
+  
+  // Metadata header following best practices
+  lines.push('---');
+  lines.push('title: Todoist Tasks Snapshot');
+  lines.push('version: 1.0.0');
+  lines.push('export_date: ' + new Date().toISOString());
+  lines.push('timezone: ' + getTimezone());
+  lines.push('source: Todoist API');
+  lines.push('format: plaintext');
+  lines.push('task_count: ' + (tasks ? tasks.length : 0));
+  lines.push('project_count: ' + (projects ? projects.length : 0));
+  lines.push('---');
+  lines.push('');
+  
   const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
   lines.push(title, '');
 
