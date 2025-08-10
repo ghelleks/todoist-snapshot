@@ -1,3 +1,30 @@
+/**
+ * Todoist Snapshot - Google Apps Script
+ * 
+ * @fileoverview Exports Todoist tasks to Google Docs, plain text files, or JSON
+ * @version 1.0.0
+ * @author Gunnar Hellekson
+ * @license MIT
+ * 
+ * Features:
+ * - Export tasks to Google Docs with rich formatting
+ * - Export tasks to plain text files with blockquote descriptions
+ * - Export raw JSON data for analysis/backup
+ * - Support for sub-tasks with hierarchical display
+ * - Configurable via Script properties
+ * 
+ * Configuration:
+ * - TODOIST_TOKEN: Required Todoist API token
+ * - DOC_ID: Optional Google Doc URL/ID for formatted export
+ * - TEXT_FILE_ID: Optional text file URL/ID for plain text export
+ * - JSON_FILE_ID: Optional JSON file URL/ID for raw data export
+ * - TIMEZONE: Optional timezone (default: America/Chicago)
+ * 
+ * Usage:
+ * - Run syncTodoist() to export to all configured targets
+ * - Run individual functions for specific exports
+ */
+
 // --- CONFIGURATION ---
 // Configuration is managed via Script properties (Project settings → Script properties).
 // Set: TODOIST_TOKEN (required), DOC_ID (optional URL), TEXT_FILE_ID (optional URL), TIMEZONE (optional).
@@ -293,20 +320,6 @@ function writeTasksToDoc(tasks, projects) {
  */
 function buildPlainTextForTasks(tasks, projects) {
   const lines = [];
-  
-  // Metadata header following best practices
-  lines.push('---');
-  lines.push('title: Todoist Tasks Snapshot');
-  lines.push('version: 1.0.0');
-  lines.push('export_date: ' + new Date().toISOString());
-  lines.push('timezone: ' + getTimezone());
-  lines.push('source: Todoist API');
-  lines.push('format: plaintext');
-  lines.push('task_count: ' + (tasks ? tasks.length : 0));
-  lines.push('project_count: ' + (projects ? projects.length : 0));
-  lines.push('---');
-  lines.push('');
-  
   const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
   lines.push(title, '');
 
