@@ -13,7 +13,11 @@
  * - Support for sub-tasks with hierarchical display
  * - Configurable via Script properties
  * 
- * Configuration:
+ *  Configuration:
+ *
+ *     Configuration is managed via Script properties
+ *        (Project settings → Script properties).
+ *
  * - TODOIST_TOKEN: Required Todoist API token
  * - DOC_ID: Optional Google Doc URL/ID for formatted export
  * - TEXT_FILE_ID: Optional text file URL/ID for plain text export
@@ -24,20 +28,6 @@
  * - Run syncTodoist() to export to all configured targets
  * - Run individual functions for specific exports
  */
-
-// --- CONFIGURATION ---
-// Configuration is managed via Script properties (Project settings → Script properties).
-// Set: TODOIST_TOKEN (required), DOC_ID (optional URL), TEXT_FILE_ID (optional URL), TIMEZONE (optional).
-
-// Configuration helpers (inline): paste sharing URLs or raw IDs into Script Properties.
-// Required properties:
-// - TODOIST_TOKEN: your Todoist API token
-// Optional targets (provide at least one):
-// - DOC_ID: Google Doc URL or ID
-// - TEXT_FILE_ID: Drive text file URL or ID
-// - JSON_FILE_ID: Drive JSON file URL or ID
-// Optional:
-// - TIMEZONE: e.g., America/Chicago
 
 function getTodoistToken() {
   const token = PropertiesService.getScriptProperties().getProperty('TODOIST_TOKEN');
