@@ -331,7 +331,7 @@ function buildPlainTextForTasks(tasks, projects) {
       if (task.priority === 2) priorityPrefix = '(P3) ';
 
       var content = task.content || '';
-      var description = task.description ? ' — ' + task.description : '';
+      var description = task.description || '';
 
       var dueDateString = '';
       if (task.due) {
@@ -350,8 +350,20 @@ function buildPlainTextForTasks(tasks, projects) {
         labelsSuffix = ' [' + task.labels.join(', ') + ']';
       }
 
-      var line = '- ' + priorityPrefix + content + description + dueDateString + labelsSuffix;
+      var line = '- ' + priorityPrefix + content + dueDateString + labelsSuffix;
       lines.push(line);
+      
+      // Add description as blockquote if it exists
+      if (description) {
+        // Split description into lines and format each as a blockquote
+        var descriptionLines = description.split('\n');
+        for (var d = 0; d < descriptionLines.length; d++) {
+          var descLine = descriptionLines[d].trim();
+          if (descLine) {
+            lines.push('  > ' + descLine);
+          }
+        }
+      }
       
       // Add sub-tasks if they exist
       if (task.subtasks && task.subtasks.length > 0) {
@@ -364,7 +376,7 @@ function buildPlainTextForTasks(tasks, projects) {
           if (subTask.priority === 2) subPriorityPrefix = '(P3) ';
           
           var subContent = subTask.content || '';
-          var subDescription = subTask.description ? ' — ' + subTask.description : '';
+          var subDescription = subTask.description || '';
           
           var subDueDateString = '';
           if (subTask.due) {
@@ -383,8 +395,20 @@ function buildPlainTextForTasks(tasks, projects) {
             subLabelsSuffix = ' [' + subTask.labels.join(', ') + ']';
           }
           
-          var subLine = '  - ' + subPriorityPrefix + subContent + subDescription + subDueDateString + subLabelsSuffix;
+          var subLine = '  - ' + subPriorityPrefix + subContent + subDueDateString + subLabelsSuffix;
           lines.push(subLine);
+          
+          // Add sub-task description as blockquote if it exists
+          if (subDescription) {
+            // Split description into lines and format each as a blockquote
+            var subDescriptionLines = subDescription.split('\n');
+            for (var sd = 0; sd < subDescriptionLines.length; sd++) {
+              var subDescLine = subDescriptionLines[sd].trim();
+              if (subDescLine) {
+                lines.push('    > ' + subDescLine);
+              }
+            }
+          }
         }
       }
     }
