@@ -7,9 +7,9 @@ module.exports = {
   setupFiles: ['<rootDir>/tests/setup/test-env.js'],
   setupFilesAfterEnv: ['<rootDir>/tests/mocks/google-apps-script.js'],
   collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/**/*.test.js',
-    '!src/**/*.spec.js'
+    'todoist-snapshot.gs',
+    '!**/*.test.js',
+    '!**/*.spec.js'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],

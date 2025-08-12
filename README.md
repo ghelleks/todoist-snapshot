@@ -64,6 +64,7 @@ Use the Apps Script UI to set properties. Paste full sharing URLs; the script wi
    - `TEXT_FILE_ID` (optional): Drive file sharing URL (.txt) if you want text output
    - `JSON_FILE_ID` (optional): Drive file sharing URL (.json) if you want raw JSON data
    - `TIMEZONE` (optional): e.g., `America/Chicago`
+   - `DEBUG` (optional): set to `true` to enable debug logging
 3. Save the properties
 
 ### 5. Test the Sync
@@ -168,7 +169,15 @@ By default, the script fetches tasks with due dates using the filter `!(no due d
 
 ### Debug Functions
 
-- Not required. Configuration is read directly from Script properties.
+For troubleshooting, you can enable debug logging:
+
+1. Set the `DEBUG` script property to `true` in your Apps Script configuration
+2. Run the sync function and check the execution log for detailed information
+3. Debug output includes:
+   - Target configuration details
+   - Task processing progress
+   - Sub-task fetching information
+   - Detailed error stack traces
 
 ## Security Notes
 
