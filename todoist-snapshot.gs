@@ -279,6 +279,31 @@ function writeTasksToDoc(tasks, projects) {
   const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
   body.appendParagraph(title).setHeading(DocumentApp.ParagraphHeading.HEADING1);
 
+  // Add metadata header
+  const metadata = [];
+  metadata.push(`Export date: ${new Date().toLocaleString()}`);
+  metadata.push(`Timezone: ${getTimezone()}`);
+  metadata.push(`Total tasks: ${tasks.length}`);
+  metadata.push(`Total projects: ${projects.length}`);
+  
+  // Calculate task statistics
+  let tasksWithLabels = 0;
+  let tasksWithComments = 0;
+  let subtaskCount = 0;
+  tasks.forEach(task => {
+    if (task.labels && task.labels.length > 0) tasksWithLabels++;
+    if (task.comment_count && task.comment_count > 0) tasksWithComments++;
+    if (task.subtasks && task.subtasks.length > 0) subtaskCount += task.subtasks.length;
+  });
+  
+  if (tasksWithLabels > 0) metadata.push(`Tasks with labels: ${tasksWithLabels}`);
+  if (tasksWithComments > 0) metadata.push(`Tasks with comments: ${tasksWithComments}`);
+  if (subtaskCount > 0) metadata.push(`Sub-tasks: ${subtaskCount}`);
+  
+  const metadataParagraph = body.appendParagraph(metadata.join(' • '));
+  metadataParagraph.setItalic(true);
+  body.appendParagraph(''); // Empty line
+
   if (tasks.length === 0) {
     body.appendParagraph('No tasks due today.');
     return;
@@ -349,7 +374,33 @@ function buildPlainTextForTasks(tasks, projects) {
   
   const lines = [];
   const title = 'Todoist Tasks for ' + new Date().toLocaleDateString();
-  lines.push(title, '');
+  lines.push(title);
+  
+  // Add metadata header
+  const metadata = [];
+  metadata.push('Export date: ' + new Date().toLocaleString());
+  metadata.push('Timezone: ' + getTimezone());
+  metadata.push('Total tasks: ' + (tasks ? tasks.length : 0));
+  metadata.push('Total projects: ' + (projects ? projects.length : 0));
+  
+  // Calculate task statistics
+  if (tasks && tasks.length > 0) {
+    var tasksWithLabels = 0;
+    var tasksWithComments = 0;
+    var subtaskCount = 0;
+    tasks.forEach(function(task) {
+      if (task.labels && task.labels.length > 0) tasksWithLabels++;
+      if (task.comment_count && task.comment_count > 0) tasksWithComments++;
+      if (task.subtasks && task.subtasks.length > 0) subtaskCount += task.subtasks.length;
+    });
+    
+    if (tasksWithLabels > 0) metadata.push('Tasks with labels: ' + tasksWithLabels);
+    if (tasksWithComments > 0) metadata.push('Tasks with comments: ' + tasksWithComments);
+    if (subtaskCount > 0) metadata.push('Sub-tasks: ' + subtaskCount);
+  }
+  
+  lines.push(metadata.join(' • '));
+  lines.push('');
 
   if (!tasks || tasks.length === 0) {
     lines.push('No tasks due today.');
@@ -405,7 +456,20 @@ function buildPlainTextForTasks(tasks, projects) {
         labelsSuffix = ' [' + task.labels.join(', ') + ']';
       }
 
-      var line = '- ' + priorityPrefix + content + dueDateString + labelsSuffix;
+      var metadataSuffix = '';
+      var metadataParts = [];
+      if (task.comment_count && task.comment_count > 0) {
+        metadataParts.push(task.comment_count + ' comments');
+      }
+      if (task.created_at) {
+        var createdDate = new Date(task.created_at);
+        metadataParts.push('created ' + Utilities.formatDate(createdDate, getTimezone(), 'MMM d'));
+      }
+      if (metadataParts.length > 0) {
+        metadataSuffix = ' (' + metadataParts.join(', ') + ')';
+      }
+
+      var line = '- ' + priorityPrefix + content + dueDateString + labelsSuffix + metadataSuffix;
       lines.push(line);
       
       // Add description as blockquote if it exists
@@ -450,7 +514,20 @@ function buildPlainTextForTasks(tasks, projects) {
             subLabelsSuffix = ' [' + subTask.labels.join(', ') + ']';
           }
           
-          var subLine = '  - ' + subPriorityPrefix + subContent + subDueDateString + subLabelsSuffix;
+          var subMetadataSuffix = '';
+          var subMetadataParts = [];
+          if (subTask.comment_count && subTask.comment_count > 0) {
+            subMetadataParts.push(subTask.comment_count + ' comments');
+          }
+          if (subTask.created_at) {
+            var subCreatedDate = new Date(subTask.created_at);
+            subMetadataParts.push('created ' + Utilities.formatDate(subCreatedDate, getTimezone(), 'MMM d'));
+          }
+          if (subMetadataParts.length > 0) {
+            subMetadataSuffix = ' (' + subMetadataParts.join(', ') + ')';
+          }
+          
+          var subLine = '  - ' + subPriorityPrefix + subContent + subDueDateString + subLabelsSuffix + subMetadataSuffix;
           lines.push(subLine);
           
           // Add sub-task description as blockquote if it exists
@@ -495,14 +572,48 @@ function writeTasksToJsonFile(tasks, projects) {
   var fileId = getJsonFileId();
   var file = DriveApp.getFileById(fileId);
   
-  // Create a structured JSON object with metadata
+  // Calculate additional statistics
+  var taskStats = {
+    total: tasks ? tasks.length : 0,
+    withDueDates: 0,
+    withLabels: 0,
+    withComments: 0,
+    byPriority: { p1: 0, p2: 0, p3: 0, p4: 0 },
+    subtaskCount: 0
+  };
+  
+  if (tasks) {
+    tasks.forEach(function(task) {
+      if (task.due) taskStats.withDueDates++;
+      if (task.labels && task.labels.length > 0) taskStats.withLabels++;
+      if (task.comment_count && task.comment_count > 0) taskStats.withComments++;
+      
+      // Count by priority (API uses 1-4, where 4 is highest)
+      if (task.priority === 4) taskStats.byPriority.p1++;
+      else if (task.priority === 3) taskStats.byPriority.p2++;
+      else if (task.priority === 2) taskStats.byPriority.p3++;
+      else taskStats.byPriority.p4++;
+    });
+  }
+
+  // Create a structured JSON object with comprehensive metadata
   var jsonData = {
-    exportDate: new Date().toISOString(),
-    timezone: getTimezone(),
-    tasks: tasks,
-    projects: projects,
-    taskCount: tasks ? tasks.length : 0,
-    projectCount: projects ? projects.length : 0
+    exportMetadata: {
+      exportDate: new Date().toISOString(),
+      timezone: getTimezone(),
+      apiVersion: 'v2',
+      scriptVersion: '1.0.0'
+    },
+    statistics: {
+      tasks: taskStats,
+      projects: {
+        total: projects ? projects.length : 0
+      }
+    },
+    data: {
+      tasks: tasks,
+      projects: projects
+    }
   };
   
   var jsonString = JSON.stringify(jsonData, null, 2); // Pretty-printed with 2-space indentation
@@ -544,7 +655,7 @@ function formatListItem(listItem, task, isSubTask = false) {
   }
   
   let labelsSuffix = '';
-  if (task.labels.length > 0) {
+  if (task.labels && task.labels.length > 0) {
     labelsSuffix = ` [${task.labels.join(', ')}]`;
   }
   

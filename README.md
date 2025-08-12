@@ -9,6 +9,8 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 - 📄 Optionally exports to a plain text file in Google Drive
 - 🏷️ Displays task priorities (P1, P2, P3), labels, and descriptions
 - 📅 Shows due dates and times in your preferred timezone
+- 📊 Includes comprehensive metadata: creation dates, comment counts, task statistics
+- 📈 Export headers show task/project counts and other useful statistics
 - ✨ Supports Markdown formatting (bold, italic, links)
 - 🔒 Secure credential storage using Google Apps Script PropertiesService
 - ⏰ Can be scheduled to run automatically
@@ -104,6 +106,8 @@ The script:
    - Due dates and times in your timezone
    - Task descriptions
    - Labels in brackets
+   - Creation dates and comment counts (for additional context)
+   - Comprehensive export statistics and metadata headers
    - Markdown formatting (bold, italic, links)
 4. **Writes Output**:
    - If targeting a Google Doc: clears the document and writes the formatted list
@@ -120,7 +124,8 @@ The script:
 
 ### JSON File Export
 - Raw data: preserves all Todoist API fields including metadata, IDs, and relationships
-- Structure: includes export timestamp, timezone, task count, and project count
+- Comprehensive statistics: detailed task breakdowns by priority, labels, comments, and more
+- Structure: includes export metadata, task statistics, and project information
 - Format: pretty-printed JSON with 2-space indentation for readability
 - Use case: ideal for data analysis, backup, or integration with other tools
 
