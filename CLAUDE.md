@@ -22,6 +22,12 @@ This is a comprehensive guide for developing the todoist-snapshot project, a Goo
 
 ## Development Principles
 
+### Architectural Decision Documentation
+- **Critical Requirement**: All significant architectural decisions MUST be documented as ADRs in the `docs/` directory
+- **ADR Repository**: The project maintains comprehensive Architectural Decision Records documenting key choices around technology stack, testing strategy, configuration management, and development practices
+- **Decision Context**: Before making architectural changes, review existing ADRs to understand current decisions and their rationale
+- **New ADRs**: When making new architectural decisions, create appropriately numbered ADR documents following the established template
+
 ### Test-Driven Development
 - **Primary Rule**: Before writing new code, write the test that validates the code's behavior
 - **Test Coverage**: 90%+ overall coverage achieved
@@ -43,6 +49,14 @@ todoist-snapshot/
 ├── jest.config.js              # Jest testing configuration
 ├── README.md                   # User-facing documentation
 ├── CLAUDE.md                   # This development guide
+├── docs/                       # Architectural Decision Records (ADRs)
+│   ├── README.md                     # ADR index and documentation guidelines
+│   ├── ADR-0001-technology-stack-selection.md
+│   ├── ADR-0002-multi-format-export-architecture.md
+│   ├── ADR-0003-testing-infrastructure-jest-stateful-mocks.md
+│   ├── ADR-0004-configuration-management-properties-service.md
+│   ├── ADR-0005-mock-system-architecture-google-apps-script-apis.md
+│   └── ADR-0006-test-driven-development-90-percent-coverage.md
 ├── tests/                      # Comprehensive test infrastructure
 │   ├── unit/                   # Unit tests (6 test files, 114 cases)
 │   │   ├── configuration.test.js     # Property management, URL parsing
@@ -86,6 +100,12 @@ todoist-snapshot/
 - **Test Scripts**: Multiple test commands (watch, coverage, unit, integration)
 - **Coverage Reporting**: HTML and LCOV coverage reports
 - **Development Tools**: TypeScript types for Jest, dotenv for environment management
+
+### Architectural Decision Records (ADRs)
+- **Comprehensive Documentation**: 6 ADRs document all major architectural decisions
+- **Decision Tracking**: Technology stack selection, multi-format export architecture, testing infrastructure, configuration management, mock system design, and development methodology
+- **Historical Context**: ADRs preserve the reasoning behind key architectural choices for future reference
+- **Decision Impact**: Each ADR documents alternatives considered, consequences, and implementation notes
 
 ## Testing Infrastructure
 
@@ -164,7 +184,16 @@ open coverage/lcov-report/index.html
 
 ### Adding New Features
 
-1. **Write Tests First**:
+1. **Review Architectural Context**:
+   ```bash
+   # Review existing ADRs to understand current architectural decisions
+   ls docs/ADR-*.md
+   
+   # Read relevant ADRs that might impact your feature
+   cat docs/ADR-0002-multi-format-export-architecture.md
+   ```
+
+2. **Write Tests First**:
    ```bash
    # Create test file in appropriate directory
    touch tests/unit/new-feature.test.js
@@ -174,12 +203,21 @@ open coverage/lcov-report/index.html
    npm test tests/unit/new-feature.test.js
    ```
 
-2. **Implement Feature**:
+3. **Implement Feature**:
    - Add code to `todoist-snapshot.gs`
-   - Follow existing patterns and conventions
+   - Follow existing patterns and conventions documented in ADRs
    - Ensure proper error handling
 
-3. **Validate Implementation**:
+4. **Document Architectural Decisions** (if applicable):
+   ```bash
+   # Create new ADR if making significant architectural changes
+   touch docs/ADR-0007-new-feature-architecture.md
+   
+   # Follow ADR template in docs/README.md
+   # Document context, decision, alternatives, consequences
+   ```
+
+5. **Validate Implementation**:
    ```bash
    # Run tests to ensure they pass
    npm test
@@ -301,6 +339,12 @@ DEBUG=true
 - Update documentation for user-facing changes
 - Ensure error handling and edge case coverage
 
+### Architectural Decision Requirements
+- **Review ADRs**: Always review existing ADRs before making architectural changes
+- **Document New Decisions**: Create new ADRs for significant architectural choices
+- **Update Existing ADRs**: Mark ADRs as superseded or deprecated when decisions change
+- **ADR Template**: Follow the established template in `docs/README.md`
+
 ### Test Requirements
 - Minimum 90% test coverage for new code
 - Both positive and negative test cases
@@ -308,9 +352,11 @@ DEBUG=true
 - Integration tests for complete workflows
 
 ### Pull Request Process
-1. Ensure all tests pass: `npm test`
-2. Verify coverage meets standards: `npm run test:coverage`
-3. Update relevant documentation
-4. Test with realistic data scenarios
+1. Review relevant ADRs: `ls docs/ADR-*.md`
+2. Ensure all tests pass: `npm test`
+3. Verify coverage meets standards: `npm run test:coverage`
+4. Update relevant documentation
+5. Create ADR if making architectural decisions
+6. Test with realistic data scenarios
 
 This development guide ensures consistent, high-quality development practices for the todoist-snapshot project.
