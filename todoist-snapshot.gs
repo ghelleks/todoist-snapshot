@@ -30,8 +30,10 @@
  * - Run individual functions for specific exports
  */
 
-// Debug flag - set to true to enable detailed logging
-const DEBUG = PropertiesService.getScriptProperties().getProperty('DEBUG') === 'true';
+// Debug flag - dynamically checked to enable detailed logging
+function isDebugEnabled() {
+  return PropertiesService.getScriptProperties().getProperty('DEBUG') === 'true';
+}
 
 /**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
@@ -48,30 +50,26 @@ function syncTodoist() {
   }
 
   Logger.log('🚀 Starting Todoist sync...');
-  if (DEBUG) {
+  if (isDebugEnabled()) {
     Logger.log('Targets: Doc=' + hasDoc + ', Text=' + hasText + ', JSON=' + hasJson);
   }
 
+  // Count the number of configured targets
+  const targetCount = [hasDoc, hasText, hasJson].filter(Boolean).length;
+
   // If multiple targets are set, fetch once and update all
-  if ((hasDoc && hasText) || (hasDoc && hasJson) || (hasText && hasJson) || (hasDoc && hasText && hasJson)) {
+  if (targetCount > 1) {
     const data = getTodoistData();
     if (hasDoc) syncTodoistToDoc(data);
     if (hasText) syncTodoistToTextFile(data);
     if (hasJson) syncTodoistToJsonFile(data);
-    Logger.log('✅ Todoist sync completed successfully');
-    return;
+  } else {
+    // Single target - let each function fetch its own data
+    if (hasDoc) syncTodoistToDoc();
+    if (hasText) syncTodoistToTextFile();
+    if (hasJson) syncTodoistToJsonFile();
   }
 
-  // Single target
-  if (hasDoc) {
-    syncTodoistToDoc();
-  }
-  if (hasText) {
-    syncTodoistToTextFile();
-  }
-  if (hasJson) {
-    syncTodoistToJsonFile();
-  }
   Logger.log('✅ Todoist sync completed successfully');
 }
 
@@ -144,7 +142,7 @@ function syncTodoistToDoc(preFetchedData) {
     Logger.log('✅ Successfully synced tasks to Google Doc');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to Google Doc: ' + e.toString());
-    if (DEBUG) {
+    if (isDebugEnabled()) {
       Logger.log(e.stack);
     }
   }
@@ -161,7 +159,7 @@ function syncTodoistToTextFile(preFetchedData) {
     Logger.log('✅ Successfully synced tasks to text file');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to text file: ' + e.toString());
-    if (DEBUG) {
+    if (isDebugEnabled()) {
       Logger.log(e.stack);
     }
   }
@@ -178,7 +176,7 @@ function syncTodoistToJsonFile(preFetchedData) {
     Logger.log('✅ Successfully synced tasks to JSON file');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to JSON file: ' + e.toString());
-    if (DEBUG) {
+    if (isDebugEnabled()) {
       Logger.log(e.stack);
     }
   }
@@ -222,7 +220,7 @@ function getTodoistData() {
  * @returns {Array} Array with sub-tasks grouped under their parents
  */
 function fetchTasksWithSubtasks(tasks, params) {
-  if (DEBUG) {
+  if (isDebugEnabled()) {
     Logger.log('=== FETCH SUBTASKS DEBUG ===');
     Logger.log('Total tasks to process: ' + tasks.length);
   }
@@ -232,7 +230,7 @@ function fetchTasksWithSubtasks(tasks, params) {
   // For each task, fetch its sub-tasks
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
-    if (DEBUG) {
+    if (isDebugEnabled()) {
       Logger.log('Processing task ' + (i+1) + ': ' + task.content);
     }
     
@@ -243,7 +241,7 @@ function fetchTasksWithSubtasks(tasks, params) {
       const subTasks = JSON.parse(subTaskResponse.getContentText());
       
       if (subTasks && subTasks.length > 0) {
-        if (DEBUG) {
+        if (isDebugEnabled()) {
           Logger.log('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
         }
         task.subtasks = subTasks;
@@ -251,7 +249,7 @@ function fetchTasksWithSubtasks(tasks, params) {
         task.subtasks = [];
       }
     } catch (error) {
-      if (DEBUG) {
+      if (isDebugEnabled()) {
         Logger.log('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
       }
       task.subtasks = [];
@@ -260,7 +258,7 @@ function fetchTasksWithSubtasks(tasks, params) {
     result.push(task);
   }
   
-  if (DEBUG) {
+  if (isDebugEnabled()) {
     Logger.log('Final result: ' + result.length + ' tasks with sub-tasks attached');
   }
   return result;
@@ -356,7 +354,7 @@ function writeTasksToDoc(tasks, projects) {
  */
 function buildPlainTextForTasks(tasks, projects) {
   // Add this debugging at the start
-  if (DEBUG) {
+  if (isDebugEnabled()) {
     Logger.log('=== TEXT EXPORT DEBUG ===');
     Logger.log('Tasks received: ' + (tasks ? tasks.length : 'null'));
     

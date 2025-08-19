@@ -38,6 +38,7 @@ describe('Main Sync Functions', () => {
         })),
         appendListItem: jest.fn(() => ({
           appendText: jest.fn(),
+          getText: jest.fn(() => ''),
           editAsText: jest.fn(() => ({
             getText: jest.fn(() => ''),
             setBold: jest.fn(),
@@ -69,118 +70,94 @@ describe('Main Sync Functions', () => {
         'TODOIST_TOKEN': 'token123'
       });
 
-      // Mock the individual sync functions to verify they're called
-      const originalSyncToDoc = global.syncTodoistToDoc;
-      global.syncTodoistToDoc = jest.fn();
+      // Clear logs before test
+      Logger.log.mockClear();
 
       syncTodoist();
 
-      expect(global.syncTodoistToDoc).toHaveBeenCalledTimes(1);
+      // Verify that syncTodoistToDoc was called by checking for the log message it produces
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to Google Doc');
       expect(Logger.log).toHaveBeenCalledWith('✅ Todoist sync completed successfully');
-
-      // Restore original function
-      global.syncTodoistToDoc = originalSyncToDoc;
+      
+      // Verify that the other sync functions were NOT called
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to text file');
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to JSON file');
     });
 
     test('should sync to text file only when only TEXT_FILE_ID configured', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        switch (key) {
-          case 'TEXT_FILE_ID': return 'file123';
-          case 'TODOIST_TOKEN': return 'token123';
-          default: return null;
-        }
+      PropertiesService.setMockProperties({
+        'TEXT_FILE_ID': 'file123',
+        'TODOIST_TOKEN': 'token123'
       });
 
-      const originalSyncToTextFile = global.syncTodoistToTextFile;
-      global.syncTodoistToTextFile = jest.fn();
+      // Clear logs before test
+      Logger.log.mockClear();
 
       syncTodoist();
 
-      expect(global.syncTodoistToTextFile).toHaveBeenCalledTimes(1);
-
-      global.syncTodoistToTextFile = originalSyncToTextFile;
+      // Verify that syncTodoistToTextFile was called by checking for the log message it produces
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to text file');
+      expect(Logger.log).toHaveBeenCalledWith('✅ Todoist sync completed successfully');
+      
+      // Verify that the other sync functions were NOT called
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to Google Doc');
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to JSON file');
     });
 
     test('should sync to JSON file only when only JSON_FILE_ID configured', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        switch (key) {
-          case 'JSON_FILE_ID': return 'json123';
-          case 'TODOIST_TOKEN': return 'token123';
-          default: return null;
-        }
+      PropertiesService.setMockProperties({
+        'JSON_FILE_ID': 'json123',
+        'TODOIST_TOKEN': 'token123'
       });
 
-      const originalSyncToJsonFile = global.syncTodoistToJsonFile;
-      global.syncTodoistToJsonFile = jest.fn();
+      // Clear logs before test
+      Logger.log.mockClear();
 
       syncTodoist();
 
-      expect(global.syncTodoistToJsonFile).toHaveBeenCalledTimes(1);
-
-      global.syncTodoistToJsonFile = originalSyncToJsonFile;
+      // Verify that syncTodoistToJsonFile was called by checking for the log message it produces
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to JSON file');
+      expect(Logger.log).toHaveBeenCalledWith('✅ Todoist sync completed successfully');
+      
+      // Verify that the other sync functions were NOT called
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to Google Doc');
+      expect(Logger.log).not.toHaveBeenCalledWith('✅ Successfully synced tasks to text file');
     });
 
     test('should fetch data once and update all targets when multiple configured', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        switch (key) {
-          case 'DOC_ID': return 'doc123';
-          case 'TEXT_FILE_ID': return 'file123';
-          case 'JSON_FILE_ID': return 'json123';
-          case 'TODOIST_TOKEN': return 'token123';
-          default: return null;
-        }
+      PropertiesService.setMockProperties({
+        'DOC_ID': 'doc123',
+        'TEXT_FILE_ID': 'file123', 
+        'JSON_FILE_ID': 'json123',
+        'TODOIST_TOKEN': 'token123'
       });
 
-      // Mock individual sync functions
-      const originalSyncToDoc = global.syncTodoistToDoc;
-      const originalSyncToTextFile = global.syncTodoistToTextFile;
-      const originalSyncToJsonFile = global.syncTodoistToJsonFile;
-      
-      global.syncTodoistToDoc = jest.fn();
-      global.syncTodoistToTextFile = jest.fn();
-      global.syncTodoistToJsonFile = jest.fn();
+      // Clear logs before test
+      Logger.log.mockClear();
 
       syncTodoist();
 
-      // Should call all three sync functions
-      expect(global.syncTodoistToDoc).toHaveBeenCalledTimes(1);
-      expect(global.syncTodoistToTextFile).toHaveBeenCalledTimes(1);
-      expect(global.syncTodoistToJsonFile).toHaveBeenCalledTimes(1);
-
-      // Each should be called with the same data object
-      expect(global.syncTodoistToDoc).toHaveBeenCalledWith(expect.objectContaining({
-        tasks: expect.any(Array),
-        projects: expect.any(Array)
-      }));
-
-      // Restore original functions
-      global.syncTodoistToDoc = originalSyncToDoc;
-      global.syncTodoistToTextFile = originalSyncToTextFile;
-      global.syncTodoistToJsonFile = originalSyncToJsonFile;
+      // Verify that all three sync functions were called by checking for their log messages
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to Google Doc');
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to text file');
+      expect(Logger.log).toHaveBeenCalledWith('✅ Successfully synced tasks to JSON file');
+      expect(Logger.log).toHaveBeenCalledWith('✅ Todoist sync completed successfully');
     });
 
     test('should log debug information when DEBUG enabled', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        switch (key) {
-          case 'DOC_ID': return 'doc123';
-          case 'TEXT_FILE_ID': return 'file123';
-          case 'DEBUG': return 'true';
-          case 'TODOIST_TOKEN': return 'token123';
-          default: return null;
-        }
+      PropertiesService.setMockProperties({
+        'DOC_ID': 'doc123',
+        'TEXT_FILE_ID': 'file123',
+        'DEBUG': 'true',
+        'TODOIST_TOKEN': 'token123'
       });
 
-      const originalSyncToDoc = global.syncTodoistToDoc;
-      const originalSyncToTextFile = global.syncTodoistToTextFile;
-      global.syncTodoistToDoc = jest.fn();
-      global.syncTodoistToTextFile = jest.fn();
+      // Clear logs before test
+      Logger.log.mockClear();
 
       syncTodoist();
 
       expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('Targets:'));
-
-      global.syncTodoistToDoc = originalSyncToDoc;
-      global.syncTodoistToTextFile = originalSyncToTextFile;
     });
 
     test('should log start and completion messages', () => {
