@@ -20,6 +20,7 @@ ADRs help maintain institutional knowledge by documenting:
 | [ADR-0004](./ADR-0004-configuration-management-properties-service.md) | Configuration Management via PropertiesService | Accepted | 2025-01-12 |
 | [ADR-0005](./ADR-0005-mock-system-architecture-google-apps-script-apis.md) | Mock System Architecture for Google Apps Script APIs | Accepted | 2025-01-12 |
 | [ADR-0006](./ADR-0006-test-driven-development-90-percent-coverage.md) | Test-Driven Development Approach with 90%+ Coverage | Accepted | 2025-01-12 |
+| [ADR-0007](./ADR-0007-default-overdue-task-inclusion.md) | Default Overdue Task Inclusion in Exports | Accepted | 2025-08-19 |
 
 ## Key Architectural Themes
 
