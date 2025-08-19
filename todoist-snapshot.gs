@@ -198,8 +198,8 @@ function getTodoistData() {
     'muteHttpExceptions': true
   };
   
-  // Fetch tasks with due date filter
-  const taskFilter = encodeURIComponent('!(no due date)');
+  // Fetch tasks including overdue items, today's tasks, and future tasks
+  const taskFilter = encodeURIComponent('overdue | today | future');
   const taskUrl = 'https://api.todoist.com/rest/v2/tasks?filter=' + taskFilter;
   const taskResponse = UrlFetchApp.fetch(taskUrl, params);
   const rawTasks = JSON.parse(taskResponse.getContentText());

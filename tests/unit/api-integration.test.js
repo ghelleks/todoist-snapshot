@@ -102,7 +102,7 @@ describe('API Integration', () => {
       );
     });
 
-    test('should use correct task filter for due dates', () => {
+    test('should use correct task filter to include overdue items', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
           getContentText: () => JSON.stringify([])
@@ -113,7 +113,7 @@ describe('API Integration', () => {
 
       getTodoistData();
 
-      const expectedFilter = encodeURIComponent('!(no due date)');
+      const expectedFilter = encodeURIComponent('overdue | today | future');
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
         `https://api.todoist.com/rest/v2/tasks?filter=${expectedFilter}`,
         expect.any(Object)

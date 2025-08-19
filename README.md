@@ -4,7 +4,7 @@ This Google Apps Script automatically syncs your Todoist tasks to a Google Docum
 
 ## Features
 
-- ✅ Fetches tasks with due dates from Todoist
+- ✅ Fetches overdue, current, and upcoming tasks from Todoist
 - 📝 Creates formatted Google Doc with grouped tasks by project
 - 📄 Optionally exports to a plain text file in Google Drive
 - 🏷️ Displays task priorities (P1, P2, P3), labels, and descriptions
@@ -99,7 +99,7 @@ To automatically sync your tasks daily:
 
 The script:
 
-1. **Fetches Tasks**: Uses the Todoist API to get all tasks that have due dates
+1. **Fetches Tasks**: Uses the Todoist API to get overdue, current, and upcoming tasks
 2. **Groups by Project**: Organizes tasks by their Todoist projects (with Inbox first)
 3. **Formats Content**: Applies formatting including:
    - **Bold** task titles
@@ -144,7 +144,7 @@ You can set your preferred timezone by updating the `TIMEZONE` property. Common 
 
 ### Task Filtering
 
-By default, the script fetches tasks with due dates using the filter `!(no due date)`. You can modify this in the `getTodoistData()` function if you want different filtering logic.
+By default, the script fetches overdue, today, and future tasks using the filter `overdue | today | future`. You can modify this in the `getTodoistData()` function if you want different filtering logic.
 
 ## Troubleshooting
 
