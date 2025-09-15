@@ -285,7 +285,7 @@ describe('End-to-End Integration Tests', () => {
       expect(textContent).toContain('Total tasks: 3');
       expect(textContent).toContain('Inbox:');
       expect(textContent).toContain('Work Project:');
-      expect(textContent).toContain('- (P1) Complete quarterly report urgently');
+      expect(textContent).toContain('- (P1) Complete quarterly report **urgently**');
       expect(textContent).toContain('[work, urgent]');
       expect(textContent).toContain('(3 comments, created Jan 1)');
       expect(textContent).toContain('> Include Q4 metrics');
@@ -356,7 +356,7 @@ describe('End-to-End Integration Tests', () => {
       const textContent = mockFile.setContent.mock.calls[0][0];
 
       // Verify priority formatting
-      expect(textContent).toContain('- (P1) Complete quarterly report urgently');
+      expect(textContent).toContain('- (P1) Complete quarterly report **urgently**');
       expect(textContent).toContain('- (P3) Schedule team meeting');
       expect(textContent).toContain('- Buy groceries'); // P4 has no prefix
 
@@ -482,8 +482,8 @@ describe('End-to-End Integration Tests', () => {
 
       syncTodoistToDoc();
 
-      // Should log debug information
-      expect(Logger.log).toHaveBeenCalledWith(
+      // Should log debug information via console.log
+      expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('FETCH SUBTASKS DEBUG')
       );
     });

@@ -151,11 +151,11 @@ describe('Main Sync Functions', () => {
       });
 
       // Clear logs before test
-      Logger.log.mockClear();
+      console.log.mockClear();
 
       syncTodoist();
 
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('Targets:'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Targets:'));
     });
 
     test('should log start and completion messages', () => {
@@ -237,7 +237,7 @@ describe('Main Sync Functions', () => {
 
       syncTodoistToDoc();
 
-      expect(Logger.log).toHaveBeenCalledWith('Test stack trace');
+      expect(console.log).toHaveBeenCalledWith('Stack trace:', 'Test stack trace');
     });
   });
 
@@ -299,7 +299,7 @@ describe('Main Sync Functions', () => {
 
       syncTodoistToTextFile();
 
-      expect(Logger.log).toHaveBeenCalledWith('Test stack trace');
+      expect(console.log).toHaveBeenCalledWith('Stack trace:', 'Test stack trace');
     });
   });
 

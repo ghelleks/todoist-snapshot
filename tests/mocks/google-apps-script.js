@@ -34,13 +34,20 @@ global.Logger = {
 };
 
 // Mock console (ensure it exists)
-if (typeof console === 'undefined') {
-  global.console = {
-    log: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn()
-  };
-}
+global.console = {
+  log: jest.fn((...args) => {
+    const logEntry = args.join(' ');
+    // Keep debug logs separate from regular logs
+    mockState.debugLogs = mockState.debugLogs || [];
+    mockState.debugLogs.push(logEntry);
+    // Only log to actual console in debug test mode
+    if (process.env.DEBUG_TESTS) {
+      console.log('[console.log]', ...args);
+    }
+  }),
+  error: jest.fn(),
+  warn: jest.fn()
+};
 
 // Enhanced PropertiesService with configurable responses
 global.PropertiesService = {
@@ -346,6 +353,7 @@ global.MockUtils = {
     mockState.apiCallCount = 0;
     mockState.errors = {};
     mockState.logs = [];
+    mockState.debugLogs = [];
     mockState.testTasks = null;
     mockState.testProjects = null;
     

@@ -35,6 +35,13 @@ function isDebugEnabled() {
   return PropertiesService.getScriptProperties().getProperty('DEBUG') === 'true';
 }
 
+// Debug logging utility - uses console.log for debug messages
+function debugLog(...args) {
+  if (isDebugEnabled()) {
+    console.log(...args);
+  }
+}
+
 
 /**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
@@ -51,9 +58,7 @@ function syncTodoist() {
   }
 
   Logger.log('🚀 Starting Todoist sync...');
-  if (isDebugEnabled()) {
-    Logger.log('Targets: Doc=' + hasDoc + ', Text=' + hasText + ', JSON=' + hasJson);
-  }
+  debugLog('Targets: Doc=' + hasDoc + ', Text=' + hasText + ', JSON=' + hasJson);
 
   // Count the number of configured targets
   const targetCount = [hasDoc, hasText, hasJson].filter(Boolean).length;
@@ -143,9 +148,7 @@ function syncTodoistToDoc(preFetchedData) {
     Logger.log('✅ Successfully synced tasks to Google Doc');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to Google Doc: ' + e.toString());
-    if (isDebugEnabled()) {
-      Logger.log(e.stack);
-    }
+    debugLog('Stack trace:', e.stack);
   }
 }
 
@@ -155,16 +158,14 @@ function syncTodoistToDoc(preFetchedData) {
  */
 function syncTodoistToTextFile(preFetchedData) {
   try {
-    Logger.log('DEBUG: syncTodoistToTextFile() started');
+    debugLog('syncTodoistToTextFile() started');
     const todoistData = preFetchedData || getTodoistData();
-    Logger.log('DEBUG: Got ' + todoistData.tasks.length + ' tasks from Todoist');
+    debugLog('Got ' + todoistData.tasks.length + ' tasks from Todoist');
     writeTasksToTextFile(todoistData.tasks, todoistData.projects);
     Logger.log('✅ Successfully synced tasks to text file');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to text file: ' + e.toString());
-    if (isDebugEnabled()) {
-      Logger.log(e.stack);
-    }
+    debugLog('Stack trace:', e.stack);
   }
 }
 
@@ -179,9 +180,7 @@ function syncTodoistToJsonFile(preFetchedData) {
     Logger.log('✅ Successfully synced tasks to JSON file');
   } catch (e) {
     Logger.log('❌ Failed to sync tasks to JSON file: ' + e.toString());
-    if (isDebugEnabled()) {
-      Logger.log(e.stack);
-    }
+    debugLog('Stack trace:', e.stack);
   }
 }
 
@@ -191,12 +190,12 @@ function syncTodoistToJsonFile(preFetchedData) {
  * @returns {Object} An object containing arrays of tasks and projects.
  */
 function getTodoistData() {
-  Logger.log('DEBUG: getTodoistData() started');
+  debugLog('getTodoistData() started');
 
   // Set up API request parameters
-  Logger.log('DEBUG: Getting Todoist token...');
+  debugLog('Getting Todoist token...');
   const token = getTodoistToken();
-  Logger.log('DEBUG: Token retrieved successfully');
+  debugLog('Token retrieved successfully');
 
   const params = {
     'method': 'get',
@@ -205,13 +204,13 @@ function getTodoistData() {
     },
     'muteHttpExceptions': true
   };
-  Logger.log('DEBUG: Request parameters set up');
+  debugLog('Request parameters set up');
 
   try {
     // Use the v2 tasks endpoint without filter to get all tasks
     // We'll filter them in the code instead of using the API filter
     const taskUrl = 'https://api.todoist.com/rest/v2/tasks';
-    Logger.log('DEBUG: Calling tasks URL: ' + taskUrl);
+    debugLog('Calling tasks URL: ' + taskUrl);
     const taskResponse = UrlFetchApp.fetch(taskUrl, params);
 
     // Validate HTTP status code before parsing JSON
@@ -226,7 +225,7 @@ function getTodoistData() {
     }
 
     const rawTasks = JSON.parse(taskContent);
-    Logger.log('DEBUG: Total tasks fetched: ' + rawTasks.length);
+    debugLog('Total tasks fetched: ' + rawTasks.length);
 
     // Filter tasks to those due within the next 7 days
     const now = new Date();
@@ -250,14 +249,16 @@ function getTodoistData() {
       return taskDueDate <= sevenDaysFromNow;
     });
 
-    Logger.log('DEBUG: Filtered to ' + filteredTasks.length + ' tasks due within 7 days');
+    debugLog('Filtered to ' + filteredTasks.length + ' tasks due within 7 days');
 
     // For each task, fetch its sub-tasks and group them
-    const sortedTasks = fetchTasksWithSubtasks(filteredTasks, params);
+    // Make a copy to avoid mutating the original filtered tasks
+    const tasksForSubtaskProcessing = JSON.parse(JSON.stringify(filteredTasks));
+    const sortedTasks = fetchTasksWithSubtasks(tasksForSubtaskProcessing, params);
 
     // Fetch all projects
     const projectUrl = 'https://api.todoist.com/rest/v2/projects';
-    Logger.log('DEBUG: Calling projects URL: ' + projectUrl);
+    debugLog('Calling projects URL: ' + projectUrl);
     const projectResponse = UrlFetchApp.fetch(projectUrl, params);
 
     // Validate HTTP status code before parsing JSON
@@ -273,6 +274,7 @@ function getTodoistData() {
 
     const projects = JSON.parse(projectContent);
 
+    // Return original filtered tasks (without subtasks) as rawTasks for JSON export
     return { tasks: sortedTasks, rawTasks: filteredTasks, projects };
   } catch (error) {
     // Re-throw with additional context for debugging
@@ -290,26 +292,20 @@ function getTodoistData() {
  * @returns {Array} Array with sub-tasks grouped under their parents
  */
 function fetchTasksWithSubtasks(tasks, params) {
-  if (isDebugEnabled()) {
-    Logger.log('=== FETCH SUBTASKS DEBUG ===');
-    Logger.log('Total tasks to process: ' + tasks.length);
-  }
+  debugLog('=== FETCH SUBTASKS DEBUG ===');
+  debugLog('Total tasks to process: ' + tasks.length);
   
   const result = [];
   
   // For each task, fetch its sub-tasks
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
-    if (isDebugEnabled()) {
-      Logger.log('Processing task ' + (i+1) + ': ' + task.content);
-    }
+    debugLog('Processing task ' + (i+1) + ': ' + task.content);
     
     // Fetch sub-tasks for this task
     const subTaskUrl = 'https://api.todoist.com/rest/v2/tasks?parent_id=' + task.id;
     try {
-      if (isDebugEnabled()) {
-        Logger.log('DEBUG: Calling subtasks URL: ' + subTaskUrl);
-      }
+      debugLog('Calling subtasks URL: ' + subTaskUrl);
       const subTaskResponse = UrlFetchApp.fetch(subTaskUrl, params);
 
       // Validate HTTP status code before parsing JSON
@@ -326,26 +322,20 @@ function fetchTasksWithSubtasks(tasks, params) {
       const subTasks = JSON.parse(subTaskContent);
       
       if (subTasks && subTasks.length > 0) {
-        if (isDebugEnabled()) {
-          Logger.log('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
-        }
+        debugLog('Found ' + subTasks.length + ' sub-tasks for task: ' + task.content);
         task.subtasks = subTasks;
       } else {
         task.subtasks = [];
       }
     } catch (error) {
-      if (isDebugEnabled()) {
-        Logger.log('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
-      }
+      debugLog('Error fetching sub-tasks for task ' + task.id + ': ' + error.toString());
       task.subtasks = [];
     }
     
     result.push(task);
   }
   
-  if (isDebugEnabled()) {
-    Logger.log('Final result: ' + result.length + ' tasks with sub-tasks attached');
-  }
+  debugLog('Final result: ' + result.length + ' tasks with sub-tasks attached');
   return result;
 }
 
@@ -439,20 +429,18 @@ function writeTasksToDoc(tasks, projects) {
  */
 function buildPlainTextForTasks(tasks, projects) {
   // Add this debugging at the start
-  if (isDebugEnabled()) {
-    Logger.log('=== TEXT EXPORT DEBUG ===');
-    Logger.log('Tasks received: ' + (tasks ? tasks.length : 'null'));
-    
-    if (tasks && tasks.length > 0) {
-      let subtaskCount = 0;
-      tasks.forEach((task, index) => {
-        if (task.subtasks && task.subtasks.length > 0) {
-          Logger.log('Task ' + index + ' (' + task.content + ') has ' + task.subtasks.length + ' sub-tasks');
-          subtaskCount += task.subtasks.length;
-        }
-      });
-      Logger.log('Total sub-tasks found: ' + subtaskCount);
-    }
+  debugLog('=== TEXT EXPORT DEBUG ===');
+  debugLog('Tasks received: ' + (tasks ? tasks.length : 'null'));
+
+  if (tasks && tasks.length > 0) {
+    let subtaskCount = 0;
+    tasks.forEach((task, index) => {
+      if (task.subtasks && task.subtasks.length > 0) {
+        debugLog('Task ' + index + ' (' + task.content + ') has ' + task.subtasks.length + ' sub-tasks');
+        subtaskCount += task.subtasks.length;
+      }
+    });
+    debugLog('Total sub-tasks found: ' + subtaskCount);
   }
   
   const lines = [];

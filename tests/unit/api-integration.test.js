@@ -276,14 +276,14 @@ describe('API Integration', () => {
         getResponseCode: () => 200
       });
 
-      // Clear Logger mock after setup but before the test
-      Logger.log.mockClear();
+      // Clear console mock after setup but before the test
+      console.log.mockClear();
 
       fetchTasksWithSubtasks(mockTasks, mockParams);
 
-      // Verify debug logging occurred
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('FETCH SUBTASKS DEBUG'));
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('Total tasks to process: 1'));
+      // Verify debug logging occurred via console.log (when DEBUG is enabled)
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('FETCH SUBTASKS DEBUG'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Total tasks to process: 1'));
     });
 
     test('should handle malformed subtask JSON responses', () => {
