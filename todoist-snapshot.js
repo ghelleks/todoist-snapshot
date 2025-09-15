@@ -35,13 +35,6 @@ function isDebugEnabled() {
   return PropertiesService.getScriptProperties().getProperty('DEBUG') === 'true';
 }
 
-/**
- * TEST FUNCTION - Remove this after debugging
- */
-function testClasp() {
-  Logger.log('CLASP TEST: This message confirms clasp push is working!');
-  return 'clasp push successful';
-}
 
 /**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
