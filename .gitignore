@@ -29,3 +29,9 @@ pids
 # OS files
 .DS_Store
 Thumbs.db
+
+# Google Apps Script configuration (contains project-specific script IDs)
+.clasp.json
+
+# Environment files with sensitive data
+.env.test

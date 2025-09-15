@@ -1,0 +1,7 @@
+# Ignore everything except essential files for Google Apps Script
+**/*
+!appsscript.json
+!todoist-snapshot.js
+
+# Specifically ignore any .gs files to avoid confusion
+*.gs

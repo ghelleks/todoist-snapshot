@@ -175,7 +175,7 @@ describe('End-to-End Integration Tests', () => {
   function setupAPIResponses() {
     // Mock Todoist API responses
     UrlFetchApp.fetch.mockImplementation((url, params) => {
-      if (url.includes('/tasks?filter=')) {
+      if (url.includes('/tasks/filter')) {
         // Main tasks endpoint
         return {
           getContentText: () => JSON.stringify(mockTodoistData.rawTasks)
@@ -237,7 +237,7 @@ describe('End-to-End Integration Tests', () => {
 
       // Verify API calls
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('api.todoist.com/rest/v2/tasks?filter='),
+        expect.stringContaining('api.todoist.com/rest/v2/tasks/filter?query='),
         expect.objectContaining({
           headers: { 'Authorization': 'Bearer test-token-12345' }
         })
@@ -427,7 +427,7 @@ describe('End-to-End Integration Tests', () => {
 
     test('should handle malformed API responses', () => {
       UrlFetchApp.fetch.mockImplementation((url) => {
-        if (url.includes('/tasks')) {
+        if (url.includes('/tasks/filter')) {
           return { getContentText: () => 'invalid json' };
         }
         return { getContentText: () => JSON.stringify([]) };
@@ -518,7 +518,7 @@ describe('End-to-End Integration Tests', () => {
       }));
 
       UrlFetchApp.fetch.mockImplementation((url) => {
-        if (url.includes('/tasks?filter=')) {
+        if (url.includes('/tasks/filter')) {
           return { getContentText: () => JSON.stringify(largeTasks) };
         } else if (url.includes('/tasks?parent_id=')) {
           return { getContentText: () => JSON.stringify([]) };
@@ -544,7 +544,7 @@ describe('End-to-End Integration Tests', () => {
         callCount++;
         if (callCount <= 3) {
           // Simulate successful calls
-          if (url.includes('/tasks?filter=')) {
+          if (url.includes('/tasks/filter')) {
             return { getContentText: () => JSON.stringify([mockTodoistData.rawTasks[0]]) };
           } else if (url.includes('/projects')) {
             return { getContentText: () => JSON.stringify(mockTodoistData.projects) };

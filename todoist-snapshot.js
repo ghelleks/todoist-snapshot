@@ -36,6 +36,14 @@ function isDebugEnabled() {
 }
 
 /**
+ * TEST FUNCTION - Remove this after debugging
+ */
+function testClasp() {
+  Logger.log('CLASP TEST: This message confirms clasp push is working!');
+  return 'clasp push successful';
+}
+
+/**
  * Unified sync function. Checks configured targets and performs the appropriate sync(s).
  * If both DOC_ID and TEXT_FILE_ID are set, it fetches once and updates both outputs.
  */
@@ -154,7 +162,9 @@ function syncTodoistToDoc(preFetchedData) {
  */
 function syncTodoistToTextFile(preFetchedData) {
   try {
+    Logger.log('DEBUG: syncTodoistToTextFile() started');
     const todoistData = preFetchedData || getTodoistData();
+    Logger.log('DEBUG: Got ' + todoistData.tasks.length + ' tasks from Todoist');
     writeTasksToTextFile(todoistData.tasks, todoistData.projects);
     Logger.log('✅ Successfully synced tasks to text file');
   } catch (e) {
@@ -182,35 +192,102 @@ function syncTodoistToJsonFile(preFetchedData) {
   }
 }
 
+
 /**
  * Fetches tasks and projects from the Todoist API.
  * @returns {Object} An object containing arrays of tasks and projects.
  */
 function getTodoistData() {
+  Logger.log('DEBUG: getTodoistData() started');
+
   // Set up API request parameters
+  Logger.log('DEBUG: Getting Todoist token...');
+  const token = getTodoistToken();
+  Logger.log('DEBUG: Token retrieved successfully');
+
   const params = {
     'method': 'get',
     'headers': {
-      'Authorization': 'Bearer ' + getTodoistToken()
+      'Authorization': 'Bearer ' + token
     },
     'muteHttpExceptions': true
   };
-  
-  // Fetch tasks including overdue items, today's tasks, and future tasks
-  const taskFilter = encodeURIComponent('overdue | today | future');
-  const taskUrl = 'https://api.todoist.com/rest/v2/tasks?filter=' + taskFilter;
-  const taskResponse = UrlFetchApp.fetch(taskUrl, params);
-  const rawTasks = JSON.parse(taskResponse.getContentText());
+  Logger.log('DEBUG: Request parameters set up');
 
-  // For each task, fetch its sub-tasks and group them
-  const sortedTasks = fetchTasksWithSubtasks(rawTasks, params);
+  try {
+    // Use the v2 tasks endpoint without filter to get all tasks
+    // We'll filter them in the code instead of using the API filter
+    const taskUrl = 'https://api.todoist.com/rest/v2/tasks';
+    Logger.log('DEBUG: Calling tasks URL: ' + taskUrl);
+    const taskResponse = UrlFetchApp.fetch(taskUrl, params);
 
-  // Fetch all projects
-  const projectUrl = 'https://api.todoist.com/rest/v2/projects';
-  const projectResponse = UrlFetchApp.fetch(projectUrl, params);
-  const projects = JSON.parse(projectResponse.getContentText());
-  
-  return { tasks: sortedTasks, rawTasks: rawTasks, projects };
+    // Validate HTTP status code before parsing JSON
+    if (taskResponse.getResponseCode() !== 200) {
+      throw new Error('Failed to fetch tasks from Todoist API. Status: ' + taskResponse.getResponseCode() + ', Response: ' + taskResponse.getContentText());
+    }
+
+    // Validate response content looks like JSON
+    const taskContent = taskResponse.getContentText();
+    if (!taskContent.trim().startsWith('[') && !taskContent.trim().startsWith('{')) {
+      throw new Error('Invalid JSON response from Todoist tasks API. Response content: ' + taskContent.substring(0, 200));
+    }
+
+    const rawTasks = JSON.parse(taskContent);
+    Logger.log('DEBUG: Total tasks fetched: ' + rawTasks.length);
+
+    // Filter tasks to those due within the next 7 days
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+
+    const filteredTasks = rawTasks.filter(task => {
+      if (!task.due) return false; // Skip tasks with no due date
+
+      let taskDueDate;
+      if (task.due.datetime) {
+        taskDueDate = new Date(task.due.datetime);
+      } else if (task.due.date) {
+        // Parse date in YYYY-MM-DD format
+        const dateParts = task.due.date.split('-');
+        taskDueDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+      } else {
+        return false;
+      }
+
+      // Include overdue tasks and tasks due within 7 days
+      return taskDueDate <= sevenDaysFromNow;
+    });
+
+    Logger.log('DEBUG: Filtered to ' + filteredTasks.length + ' tasks due within 7 days');
+
+    // For each task, fetch its sub-tasks and group them
+    const sortedTasks = fetchTasksWithSubtasks(filteredTasks, params);
+
+    // Fetch all projects
+    const projectUrl = 'https://api.todoist.com/rest/v2/projects';
+    Logger.log('DEBUG: Calling projects URL: ' + projectUrl);
+    const projectResponse = UrlFetchApp.fetch(projectUrl, params);
+
+    // Validate HTTP status code before parsing JSON
+    if (projectResponse.getResponseCode() !== 200) {
+      throw new Error('Failed to fetch projects from Todoist API. Status: ' + projectResponse.getResponseCode() + ', Response: ' + projectResponse.getContentText());
+    }
+
+    // Validate response content looks like JSON
+    const projectContent = projectResponse.getContentText();
+    if (!projectContent.trim().startsWith('[') && !projectContent.trim().startsWith('{')) {
+      throw new Error('Invalid JSON response from Todoist projects API. Response content: ' + projectContent.substring(0, 200));
+    }
+
+    const projects = JSON.parse(projectContent);
+
+    return { tasks: sortedTasks, rawTasks: filteredTasks, projects };
+  } catch (error) {
+    // Re-throw with additional context for debugging
+    if (error.message.includes('JSON.parse')) {
+      throw new Error('JSON parsing error in Todoist API response. This usually indicates an invalid API token or API rate limiting. Original error: ' + error.message);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -237,8 +314,23 @@ function fetchTasksWithSubtasks(tasks, params) {
     // Fetch sub-tasks for this task
     const subTaskUrl = 'https://api.todoist.com/rest/v2/tasks?parent_id=' + task.id;
     try {
+      if (isDebugEnabled()) {
+        Logger.log('DEBUG: Calling subtasks URL: ' + subTaskUrl);
+      }
       const subTaskResponse = UrlFetchApp.fetch(subTaskUrl, params);
-      const subTasks = JSON.parse(subTaskResponse.getContentText());
+
+      // Validate HTTP status code before parsing JSON
+      if (subTaskResponse.getResponseCode() !== 200) {
+        throw new Error('Failed to fetch sub-tasks for task ' + task.id + '. Status: ' + subTaskResponse.getResponseCode() + ', Response: ' + subTaskResponse.getContentText());
+      }
+
+      // Validate response content looks like JSON
+      const subTaskContent = subTaskResponse.getContentText();
+      if (!subTaskContent.trim().startsWith('[') && !subTaskContent.trim().startsWith('{')) {
+        throw new Error('Invalid JSON response from Todoist sub-tasks API for task ' + task.id + '. Response content: ' + subTaskContent.substring(0, 200));
+      }
+
+      const subTasks = JSON.parse(subTaskContent);
       
       if (subTasks && subTasks.length > 0) {
         if (isDebugEnabled()) {

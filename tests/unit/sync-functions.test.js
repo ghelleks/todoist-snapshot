@@ -22,10 +22,12 @@ describe('Main Sync Functions', () => {
     // Setup default successful responses
     UrlFetchApp.fetch
       .mockReturnValueOnce({
-        getContentText: () => JSON.stringify([])
+        getContentText: () => JSON.stringify([]),
+        getResponseCode: () => 200
       })
       .mockReturnValueOnce({
-        getContentText: () => JSON.stringify([])
+        getContentText: () => JSON.stringify([]),
+        getResponseCode: () => 200
       });
 
     // Setup default document and file mocks
