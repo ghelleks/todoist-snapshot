@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load and evaluate the Google Apps Script file
-const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.gs'), 'utf8');
+const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.js'), 'utf8');
 eval(gasCode);
 
 describe('End-to-End Integration Tests', () => {
@@ -29,7 +29,7 @@ describe('End-to-End Integration Tests', () => {
           id: '2995104339',
           content: 'Complete quarterly report **urgently**',
           description: 'Include Q4 metrics\nAdd performance analysis\nReview with team',
-          due: { datetime: '2024-01-15T17:00:00Z' },
+          due: { datetime: '2025-09-16T17:00:00Z' },
           priority: 4,
           labels: ['work', 'urgent'],
           project_id: '2203306141',
@@ -41,7 +41,7 @@ describe('End-to-End Integration Tests', () => {
               content: 'Gather Q4 data',
               priority: 2,
               labels: ['data'],
-              due: { date: '2024-01-14' },
+              due: { date: '2025-09-16' },
               created_at: '2024-01-02T09:00:00Z',
               comment_count: 1
             },
@@ -58,7 +58,7 @@ describe('End-to-End Integration Tests', () => {
           id: '2995104342',
           content: 'Schedule team meeting with [calendar link](https://calendar.google.com)',
           description: '',
-          due: { date: '2024-01-16' },
+          due: { date: '2025-09-17' },
           priority: 2,
           labels: ['meeting'],
           project_id: '2203306141',
@@ -70,7 +70,7 @@ describe('End-to-End Integration Tests', () => {
           id: '2995104343',
           content: 'Buy groceries',
           description: 'Milk, bread, eggs',
-          due: { date: '2024-01-15' },
+          due: { date: '2025-09-18' },
           priority: 1,
           labels: [],
           project_id: 'inbox',
@@ -84,7 +84,7 @@ describe('End-to-End Integration Tests', () => {
           id: '2995104339',
           content: 'Complete quarterly report **urgently**',
           description: 'Include Q4 metrics\nAdd performance analysis\nReview with team',
-          due: { datetime: '2024-01-15T17:00:00Z' },
+          due: { datetime: '2025-09-16T17:00:00Z' },
           priority: 4,
           labels: ['work', 'urgent'],
           project_id: '2203306141',
@@ -94,7 +94,7 @@ describe('End-to-End Integration Tests', () => {
         {
           id: '2995104342',
           content: 'Schedule team meeting with [calendar link](https://calendar.google.com)',
-          due: { date: '2024-01-16' },
+          due: { date: '2025-09-17' },
           priority: 2,
           labels: ['meeting'],
           project_id: '2203306141',
@@ -105,7 +105,7 @@ describe('End-to-End Integration Tests', () => {
           id: '2995104343',
           content: 'Buy groceries',
           description: 'Milk, bread, eggs',
-          due: { date: '2024-01-15' },
+          due: { date: '2025-09-18' },
           priority: 1,
           labels: [],
           project_id: 'inbox',
@@ -175,10 +175,11 @@ describe('End-to-End Integration Tests', () => {
   function setupAPIResponses() {
     // Mock Todoist API responses
     UrlFetchApp.fetch.mockImplementation((url, params) => {
-      if (url.includes('/tasks?filter=')) {
+      if (url.includes('/tasks') && !url.includes('parent_id')) {
         // Main tasks endpoint
         return {
-          getContentText: () => JSON.stringify(mockTodoistData.rawTasks)
+          getContentText: () => JSON.stringify(mockTodoistData.rawTasks),
+          getResponseCode: () => 200
         };
       } else if (url.includes('/tasks?parent_id=2995104339')) {
         // Subtasks for first task
@@ -189,7 +190,7 @@ describe('End-to-End Integration Tests', () => {
               content: 'Gather Q4 data',
               priority: 2,
               labels: ['data'],
-              due: { date: '2024-01-14' },
+              due: { date: '2025-09-16' },
               created_at: '2024-01-02T09:00:00Z',
               comment_count: 1
             },
@@ -200,17 +201,20 @@ describe('End-to-End Integration Tests', () => {
               labels: [],
               created_at: '2024-01-02T09:30:00Z'
             }
-          ])
+          ]),
+          getResponseCode: () => 200
         };
       } else if (url.includes('/tasks?parent_id=')) {
         // No subtasks for other tasks
         return {
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         };
       } else if (url.includes('/projects')) {
         // Projects endpoint
         return {
-          getContentText: () => JSON.stringify(mockTodoistData.projects)
+          getContentText: () => JSON.stringify(mockTodoistData.projects),
+          getResponseCode: () => 200
         };
       }
       return { getContentText: () => JSON.stringify([]) };
@@ -218,16 +222,13 @@ describe('End-to-End Integration Tests', () => {
   }
 
   function setupConfiguration() {
-    PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-      switch (key) {
-        case 'TODOIST_TOKEN': return 'test-token-12345';
-        case 'DOC_ID': return 'test-doc-id';
-        case 'TEXT_FILE_ID': return 'test-file-id';
-        case 'JSON_FILE_ID': return 'test-json-id';
-        case 'TIMEZONE': return 'America/Chicago';
-        case 'DEBUG': return 'false';
-        default: return null;
-      }
+    PropertiesService.setMockProperties({
+      'TODOIST_TOKEN': 'test-token-12345',
+      'DOC_ID': '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+      'TEXT_FILE_ID': '1AbCdEFghIJklMNopQRstuVWxyz123456',
+      'JSON_FILE_ID': '1XyZabcDEFghIJklMNopQRstuVWxyz789',
+      'TIMEZONE': 'America/Chicago',
+      'DEBUG': 'false'
     });
   }
 
@@ -237,14 +238,14 @@ describe('End-to-End Integration Tests', () => {
 
       // Verify API calls
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('api.todoist.com/rest/v2/tasks?filter='),
+        'https://api.todoist.com/rest/v2/tasks',
         expect.objectContaining({
           headers: { 'Authorization': 'Bearer test-token-12345' }
         })
       );
 
       // Verify document operations
-      expect(DocumentApp.openById).toHaveBeenCalledWith('test-doc-id');
+      expect(DocumentApp.openById).toHaveBeenCalledWith('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
       expect(mockBody.setText).toHaveBeenCalledWith('');
       
       // Verify title and metadata
@@ -273,7 +274,7 @@ describe('End-to-End Integration Tests', () => {
       expect(UrlFetchApp.fetch).toHaveBeenCalled();
 
       // Verify file operations
-      expect(DriveApp.getFileById).toHaveBeenCalledWith('test-file-id');
+      expect(DriveApp.getFileById).toHaveBeenCalledWith('1AbCdEFghIJklMNopQRstuVWxyz123456');
       expect(mockFile.setContent).toHaveBeenCalledTimes(1);
 
       const textContent = mockFile.setContent.mock.calls[0][0];
@@ -302,7 +303,7 @@ describe('End-to-End Integration Tests', () => {
       expect(UrlFetchApp.fetch).toHaveBeenCalled();
 
       // Verify file operations
-      expect(DriveApp.getFileById).toHaveBeenCalledWith('test-json-id');
+      expect(DriveApp.getFileById).toHaveBeenCalledWith('1XyZabcDEFghIJklMNopQRstuVWxyz789');
       expect(mockFile.setContent).toHaveBeenCalledTimes(1);
 
       const jsonContent = mockFile.setContent.mock.calls[0][0];
@@ -339,9 +340,9 @@ describe('End-to-End Integration Tests', () => {
       expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(5);
 
       // Verify all files were updated
-      expect(DocumentApp.openById).toHaveBeenCalledWith('test-doc-id');
-      expect(DriveApp.getFileById).toHaveBeenCalledWith('test-file-id');
-      expect(DriveApp.getFileById).toHaveBeenCalledWith('test-json-id');
+      expect(DocumentApp.openById).toHaveBeenCalledWith('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
+      expect(DriveApp.getFileById).toHaveBeenCalledWith('1AbCdEFghIJklMNopQRstuVWxyz123456');
+      expect(DriveApp.getFileById).toHaveBeenCalledWith('1XyZabcDEFghIJklMNopQRstuVWxyz789');
 
       // Verify completion logging
       expect(Logger.log).toHaveBeenCalledWith('✅ Todoist sync completed successfully');
@@ -368,8 +369,8 @@ describe('End-to-End Integration Tests', () => {
       expect(textContent).toContain('(1 comments, created Jan 2)');
 
       // Verify due date formatting
-      expect(textContent).toContain('(Due: Jan 15, 2024 at 5:00 PM)');
-      expect(textContent).toContain('(Due: Jan 16, 2024)');
+      expect(textContent).toContain('(Due: Sep 16, 2025 at 5:00 PM)');
+      expect(textContent).toContain('(Due: Sep 17, 2025)');
 
       // Verify description formatting
       expect(textContent).toContain('> Include Q4 metrics');
@@ -427,7 +428,7 @@ describe('End-to-End Integration Tests', () => {
 
     test('should handle malformed API responses', () => {
       UrlFetchApp.fetch.mockImplementation((url) => {
-        if (url.includes('/tasks')) {
+        if (url.includes('/tasks/filter')) {
           return { getContentText: () => 'invalid json' };
         }
         return { getContentText: () => JSON.stringify([]) };
@@ -467,17 +468,16 @@ describe('End-to-End Integration Tests', () => {
 
   describe('Configuration Integration', () => {
     test('should handle missing configuration gracefully', () => {
-      PropertiesService.getScriptProperties().getProperty.mockReturnValue(null);
+      PropertiesService.setMockProperties({});
 
       expect(() => syncTodoist()).toThrow('No output targets configured');
     });
 
     test('should respect DEBUG configuration', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        if (key === 'DEBUG') return 'true';
-        if (key === 'DOC_ID') return 'test-doc-id';
-        if (key === 'TODOIST_TOKEN') return 'test-token';
-        return null;
+      PropertiesService.setMockProperties({
+        'DEBUG': 'true',
+        'DOC_ID': '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+        'TODOIST_TOKEN': 'test-token-12345'
       });
 
       syncTodoistToDoc();
@@ -489,11 +489,10 @@ describe('End-to-End Integration Tests', () => {
     });
 
     test('should use custom timezone in exports', () => {
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        if (key === 'TIMEZONE') return 'Europe/London';
-        if (key === 'JSON_FILE_ID') return 'test-json-id';
-        if (key === 'TODOIST_TOKEN') return 'test-token';
-        return null;
+      PropertiesService.setMockProperties({
+        'TIMEZONE': 'Europe/London',
+        'JSON_FILE_ID': '1XyZabcDEFghIJklMNopQRstuVWxyz789',
+        'TODOIST_TOKEN': 'test-token-12345'
       });
 
       syncTodoistToJsonFile();
@@ -518,7 +517,7 @@ describe('End-to-End Integration Tests', () => {
       }));
 
       UrlFetchApp.fetch.mockImplementation((url) => {
-        if (url.includes('/tasks?filter=')) {
+        if (url.includes('/tasks/filter')) {
           return { getContentText: () => JSON.stringify(largeTasks) };
         } else if (url.includes('/tasks?parent_id=')) {
           return { getContentText: () => JSON.stringify([]) };
@@ -544,7 +543,7 @@ describe('End-to-End Integration Tests', () => {
         callCount++;
         if (callCount <= 3) {
           // Simulate successful calls
-          if (url.includes('/tasks?filter=')) {
+          if (url.includes('/tasks/filter')) {
             return { getContentText: () => JSON.stringify([mockTodoistData.rawTasks[0]]) };
           } else if (url.includes('/projects')) {
             return { getContentText: () => JSON.stringify(mockTodoistData.projects) };

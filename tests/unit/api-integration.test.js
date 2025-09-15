@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load and evaluate the Google Apps Script file
-const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.gs'), 'utf8');
+const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.js'), 'utf8');
 eval(gasCode);
 
 describe('API Integration', () => {
@@ -48,13 +48,16 @@ describe('API Integration', () => {
       // Mock API responses
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify(mockTasks)
+          getContentText: () => JSON.stringify(mockTasks),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([]) // subtasks response
+          getContentText: () => JSON.stringify([]), // subtasks response
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify(mockProjects)
+          getContentText: () => JSON.stringify(mockProjects),
+          getResponseCode: () => 200
         });
 
       const result = getTodoistData();
@@ -70,17 +73,19 @@ describe('API Integration', () => {
     test('should use correct API endpoints and headers', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         });
 
       getTodoistData();
 
       // Check that the correct URLs were called
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://api.todoist.com/rest/v2/tasks?filter='),
+        'https://api.todoist.com/rest/v2/tasks',
         expect.objectContaining({
           method: 'get',
           headers: {
@@ -102,28 +107,69 @@ describe('API Integration', () => {
       );
     });
 
-    test('should use correct task filter to include overdue items', () => {
+    test('should use basic tasks endpoint without filter', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         });
 
       getTodoistData();
 
-      const expectedFilter = encodeURIComponent('overdue | today | future');
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        `https://api.todoist.com/rest/v2/tasks?filter=${expectedFilter}`,
+        'https://api.todoist.com/rest/v2/tasks',
         expect.any(Object)
       );
+    });
+
+    test('should filter tasks client-side for 7 day window', () => {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      const nextWeek = new Date(now.getTime() + (8 * 24 * 60 * 60 * 1000)); // 8 days out
+
+      const mockTasks = [
+        {
+          id: '1',
+          content: 'Due tomorrow',
+          due: { date: tomorrow.toISOString().split('T')[0] }
+        },
+        {
+          id: '2',
+          content: 'Due next week',
+          due: { date: nextWeek.toISOString().split('T')[0] }
+        },
+        {
+          id: '3',
+          content: 'No due date'
+        }
+      ];
+
+      UrlFetchApp.fetch
+        .mockReturnValueOnce({
+          getContentText: () => JSON.stringify(mockTasks),
+          getResponseCode: () => 200
+        })
+        .mockReturnValueOnce({
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
+        });
+
+      const result = getTodoistData();
+
+      // Should only include task due tomorrow (within 7 days)
+      expect(result.tasks).toHaveLength(1);
+      expect(result.tasks[0].content).toBe('Due tomorrow');
     });
 
     test('should handle malformed JSON responses gracefully', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => 'invalid json'
+          getContentText: () => 'invalid json',
+          getResponseCode: () => 200
         });
 
       expect(() => getTodoistData()).toThrow();
@@ -151,10 +197,12 @@ describe('API Integration', () => {
       // Mock subtask API responses
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify(mockSubtasks)
+          getContentText: () => JSON.stringify(mockSubtasks),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         });
 
       const result = fetchTasksWithSubtasks(mockTasks, mockParams);
@@ -205,7 +253,8 @@ describe('API Integration', () => {
       const mockTasks = [{ id: '123', content: 'Parent task' }];
 
       UrlFetchApp.fetch.mockReturnValue({
-        getContentText: () => JSON.stringify(null)
+        getContentText: () => JSON.stringify(null),
+        getResponseCode: () => 200
       });
 
       const result = fetchTasksWithSubtasks(mockTasks, mockParams);
@@ -215,17 +264,20 @@ describe('API Integration', () => {
 
     test('should log debug information when DEBUG is enabled', () => {
       // Enable debug mode
-      PropertiesService.getScriptProperties().getProperty.mockImplementation((key) => {
-        if (key === 'DEBUG') return 'true';
-        if (key === 'TODOIST_TOKEN') return 'mock-token-12345';
-        return null;
+      PropertiesService.setMockProperties({
+        'DEBUG': 'true',
+        'TODOIST_TOKEN': 'mock-token-12345'
       });
 
       const mockTasks = [{ id: '123', content: 'Test task' }];
 
       UrlFetchApp.fetch.mockReturnValue({
-        getContentText: () => JSON.stringify([])
+        getContentText: () => JSON.stringify([]),
+        getResponseCode: () => 200
       });
+
+      // Clear Logger mock after setup but before the test
+      Logger.log.mockClear();
 
       fetchTasksWithSubtasks(mockTasks, mockParams);
 
@@ -238,7 +290,8 @@ describe('API Integration', () => {
       const mockTasks = [{ id: '123', content: 'Parent task' }];
 
       UrlFetchApp.fetch.mockReturnValue({
-        getContentText: () => 'invalid json'
+        getContentText: () => 'invalid json',
+        getResponseCode: () => 200
       });
 
       const result = fetchTasksWithSubtasks(mockTasks, mockParams);
@@ -254,9 +307,8 @@ describe('API Integration', () => {
         getResponseCode: () => 401
       });
 
-      // The function doesn't explicitly handle HTTP status codes,
-      // but we can test that it doesn't crash
-      expect(() => getTodoistData()).not.toThrow();
+      // The function should now throw an error for non-200 status codes
+      expect(() => getTodoistData()).toThrow('Failed to fetch tasks from Todoist API. Status: 401');
     });
 
     test('should handle 429 rate limiting responses', () => {
@@ -265,7 +317,7 @@ describe('API Integration', () => {
         getResponseCode: () => 429
       });
 
-      expect(() => getTodoistData()).not.toThrow();
+      expect(() => getTodoistData()).toThrow('Failed to fetch tasks from Todoist API. Status: 429');
     });
 
     test('should handle 500 server error responses', () => {
@@ -274,7 +326,7 @@ describe('API Integration', () => {
         getResponseCode: () => 500
       });
 
-      expect(() => getTodoistData()).not.toThrow();
+      expect(() => getTodoistData()).toThrow('Failed to fetch tasks from Todoist API. Status: 500');
     });
 
     test('should handle network timeout errors', () => {
@@ -288,10 +340,12 @@ describe('API Integration', () => {
     test('should handle empty API responses', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         });
 
       const result = getTodoistData();
@@ -303,21 +357,31 @@ describe('API Integration', () => {
 
   describe('Token Management', () => {
     test('should throw error when token is not configured', () => {
-      PropertiesService.getScriptProperties().getProperty.mockReturnValue(null);
+      // Reset UrlFetchApp mock first
+      UrlFetchApp.fetch.mockReset();
+      // Override the beforeEach setup with null token
+      PropertiesService.setMockProperties({});
 
       expect(() => getTodoistData()).toThrow('TODOIST_TOKEN is not configured');
     });
 
     test('should use the configured token in API calls', () => {
+      // Reset UrlFetchApp mock first
+      UrlFetchApp.fetch.mockReset();
       const customToken = 'custom-token-xyz';
-      PropertiesService.getScriptProperties().getProperty.mockReturnValue(customToken);
+      // Override the beforeEach setup with custom token
+      PropertiesService.setMockProperties({
+        'TODOIST_TOKEN': customToken
+      });
 
       UrlFetchApp.fetch
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         })
         .mockReturnValueOnce({
-          getContentText: () => JSON.stringify([])
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
         });
 
       getTodoistData();

@@ -89,8 +89,14 @@ global.UrlFetchApp = {
     let responseData = '[]';
     let responseCode = 200;
     
-    if (url.includes('/tasks?filter=')) {
-      // Main tasks endpoint
+    if (url.includes('/tasks/filter')) {
+      // Filter endpoint (legacy)
+      responseData = JSON.stringify(mockState.testTasks || testData.realistic.tasks.map(t => {
+        const { subtasks, ...task } = t;
+        return task;
+      }));
+    } else if (url.includes('/tasks') && !url.includes('parent_id')) {
+      // Basic tasks endpoint (new approach)
       responseData = JSON.stringify(mockState.testTasks || testData.realistic.tasks.map(t => {
         const { subtasks, ...task } = t;
         return task;
