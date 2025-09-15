@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load and evaluate the Google Apps Script file
-const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.gs'), 'utf8');
+const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.js'), 'utf8');
 eval(gasCode);
 
 describe('API Integration', () => {
@@ -85,7 +85,7 @@ describe('API Integration', () => {
 
       // Check that the correct URLs were called
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://api.todoist.com/rest/v2/tasks/filter?query='),
+        'https://api.todoist.com/rest/v2/tasks',
         expect.objectContaining({
           method: 'get',
           headers: {
@@ -107,7 +107,7 @@ describe('API Integration', () => {
       );
     });
 
-    test('should use correct task filter endpoint with query parameter', () => {
+    test('should use basic tasks endpoint without filter', () => {
       UrlFetchApp.fetch
         .mockReturnValueOnce({
           getContentText: () => JSON.stringify([]),
@@ -120,11 +120,49 @@ describe('API Integration', () => {
 
       getTodoistData();
 
-      const expectedFilter = encodeURIComponent('due before: +7 days');
       expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
-        `https://api.todoist.com/rest/v2/tasks/filter?query=${expectedFilter}`,
+        'https://api.todoist.com/rest/v2/tasks',
         expect.any(Object)
       );
+    });
+
+    test('should filter tasks client-side for 7 day window', () => {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      const nextWeek = new Date(now.getTime() + (8 * 24 * 60 * 60 * 1000)); // 8 days out
+
+      const mockTasks = [
+        {
+          id: '1',
+          content: 'Due tomorrow',
+          due: { date: tomorrow.toISOString().split('T')[0] }
+        },
+        {
+          id: '2',
+          content: 'Due next week',
+          due: { date: nextWeek.toISOString().split('T')[0] }
+        },
+        {
+          id: '3',
+          content: 'No due date'
+        }
+      ];
+
+      UrlFetchApp.fetch
+        .mockReturnValueOnce({
+          getContentText: () => JSON.stringify(mockTasks),
+          getResponseCode: () => 200
+        })
+        .mockReturnValueOnce({
+          getContentText: () => JSON.stringify([]),
+          getResponseCode: () => 200
+        });
+
+      const result = getTodoistData();
+
+      // Should only include task due tomorrow (within 7 days)
+      expect(result.tasks).toHaveLength(1);
+      expect(result.tasks[0].content).toBe('Due tomorrow');
     });
 
     test('should handle malformed JSON responses gracefully', () => {

@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load and evaluate the Google Apps Script file
-const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.gs'), 'utf8');
+const gasCode = fs.readFileSync(path.join(__dirname, '../../todoist-snapshot.js'), 'utf8');
 eval(gasCode);
 
 describe('Export Formats', () => {
